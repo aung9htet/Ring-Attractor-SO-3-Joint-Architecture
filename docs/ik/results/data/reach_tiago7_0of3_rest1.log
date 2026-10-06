@@ -1,0 +1,26 @@
+
+              -- N E S T --
+  Copyright (C) 2004 The NEST Initiative
+
+ Version: HEAD@41892a5
+ Built: Mar 24 2026 09:42:32
+
+ This program is provided AS IS and comes with
+ NO WARRANTY. See the file LICENSE for details.
+
+ Problems or suggestions?
+   Visit https://www.nest-simulator.org
+
+ Type 'nest.help()' to find out more about NEST.
+
+tiago7 pair 81: from 63 deg to 0.8 deg (at a limit), 5 deg after 2.6 s, path 1.19, 5.5 s; exact rule 0.2 deg | 1 done, 100% reached, 204 s
+tiago7 pair 84: from 171 deg to 0.6 deg (free), 5 deg after 6.5 s, path 1.17, 9.8 s; exact rule 0.2 deg | 2 done, 100% reached, 511 s
+tiago7 pair 87: from 114 deg to 0.8 deg (free), 5 deg after 4.4 s, path 1.17, 7.0 s; exact rule 0.4 deg | 3 done, 100% reached, 768 s
+tiago7 pair 90: from 133 deg to 42.9 deg (at a limit), 5 deg after nan s, path 1.83, 20.0 s; exact rule 29.0 deg | 4 done, 75% reached, 1333 s
+tiago7 pair 93: from 47 deg to 1.0 deg (free), 5 deg after 2.5 s, path 1.27, 5.8 s; exact rule 0.0 deg | 5 done, 80% reached, 1546 s
+tiago7 pair 96: from 54 deg to 1.2 deg (free), 5 deg after 2.5 s, path 1.33, 5.9 s; exact rule 0.2 deg | 6 done, 83% reached, 1788 s
+tiago7 pair 99: from 150 deg to 1.9 deg (at a limit), 5 deg after 6.7 s, path 1.07, 9.2 s; exact rule 0.2 deg | 7 done, 86% reached, 2069 s
+tiago7: 37620 neurons, 0.04 of real time, 7 trials (0 not run)
+reached 86% (exact rule 86%; of those the exact rule reaches: 100%); final error of reached 0.90 deg; 5 deg after 3.5 s; path 1.18 x shortest
+missed 1, of which 1 with a joint at a limit; 86% of trials settled, median duration 7.0 s
+written: /work/scripts/../docs/ik/results/data/reach_tiago7_0of3_rest1.json

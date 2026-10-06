@@ -1,0 +1,21 @@
+
+              -- N E S T --
+  Copyright (C) 2004 The NEST Initiative
+
+ Version: HEAD@41892a5
+ Built: Mar 24 2026 09:42:32
+
+ This program is provided AS IS and comes with
+ NO WARRANTY. See the file LICENSE for details.
+
+ Problems or suggestions?
+   Visit https://www.nest-simulator.org
+
+ Type 'nest.help()' to find out more about NEST.
+
+generic7 pair 94: from 151 deg to 1.7 deg (free), 5 deg after 5.2 s, path 1.16, 9.3 s; exact rule 0.1 deg | 1 done, 100% reached, 335 s
+generic7 pair 97: from 91 deg to 0.3 deg (free), 5 deg after 3.3 s, path 1.22, 7.0 s; exact rule 0.2 deg | 2 done, 100% reached, 631 s
+generic7: 37620 neurons, 0.04 of real time, 2 trials (0 not run)
+reached 100% (exact rule 100%; of those the exact rule reaches: 100%); final error of reached 0.97 deg; 5 deg after 4.2 s; path 1.19 x shortest
+missed 0, of which 0 with a joint at a limit; 100% of trials settled, median duration 8.2 s
+written: /work/scripts/../docs/ik/results/data/reach_generic7_1of3_rest1.json

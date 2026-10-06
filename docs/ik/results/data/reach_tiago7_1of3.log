@@ -1,0 +1,47 @@
+
+              -- N E S T --
+  Copyright (C) 2004 The NEST Initiative
+
+ Version: HEAD@41892a5
+ Built: Mar 24 2026 09:42:32
+
+ This program is provided AS IS and comes with
+ NO WARRANTY. See the file LICENSE for details.
+
+ Problems or suggestions?
+   Visit https://www.nest-simulator.org
+
+ Type 'nest.help()' to find out more about NEST.
+
+tiago7 pair 1: from 99 deg to 1.6 deg (free), 5 deg after 5.5 s, path 1.43, 8.3 s; exact rule 0.2 deg | 1 done, 100% reached, 177 s
+tiago7 pair 4: from 93 deg to 1.2 deg (at a limit), 5 deg after 3.8 s, path 1.18, 6.9 s; exact rule 0.1 deg | 2 done, 100% reached, 351 s
+tiago7 pair 7: from 137 deg to 0.7 deg (at a limit), 5 deg after 7.7 s, path 1.24, 10.9 s; exact rule 0.3 deg | 3 done, 100% reached, 583 s
+tiago7 pair 10: from 85 deg to 1.3 deg (free), 5 deg after 4.0 s, path 1.49, 8.2 s; exact rule 0.1 deg | 4 done, 100% reached, 793 s
+tiago7 pair 13: from 152 deg to 1.5 deg (at a limit), 5 deg after 8.3 s, path 1.23, 12.0 s; exact rule 0.3 deg | 5 done, 100% reached, 1063 s
+tiago7 pair 16: from 82 deg to 0.4 deg (free), 5 deg after 4.0 s, path 1.13, 8.6 s; exact rule 0.2 deg | 6 done, 100% reached, 1249 s
+tiago7 pair 19: from 117 deg to 1.6 deg (free), 5 deg after 4.4 s, path 1.13, 7.2 s; exact rule 0.2 deg | 7 done, 100% reached, 1404 s
+tiago7 pair 22: from 91 deg to 1.2 deg (free), 5 deg after 5.1 s, path 1.29, 9.7 s; exact rule 0.2 deg | 8 done, 100% reached, 1610 s
+tiago7 pair 25: from 145 deg to 2.6 deg (at a limit), 5 deg after 8.2 s, path 1.16, 14.0 s; exact rule 1.1 deg | 9 done, 100% reached, 1878 s
+tiago7 pair 28: from 164 deg to 0.6 deg (at a limit), 5 deg after 5.5 s, path 1.11, 13.8 s; exact rule 0.7 deg | 10 done, 100% reached, 2182 s
+tiago7 pair 31: from 145 deg to 5.8 deg (at a limit), 5 deg after nan s, path 1.14, 10.9 s; exact rule 7.8 deg | 11 done, 91% reached, 2444 s
+tiago7 pair 34: from 93 deg to 2.2 deg (at a limit), 5 deg after 5.6 s, path 1.32, 8.2 s; exact rule 0.4 deg | 12 done, 92% reached, 2656 s
+tiago7 pair 37: from 93 deg to 2.4 deg (free), 5 deg after 8.8 s, path 2.91, 17.4 s; exact rule 0.3 deg | 13 done, 92% reached, 2990 s
+tiago7 pair 40: from 158 deg to 1.6 deg (free), 5 deg after 6.6 s, path 1.20, 9.1 s; exact rule 0.2 deg | 14 done, 93% reached, 3206 s
+tiago7 pair 43: from 86 deg to 1.1 deg (free), 5 deg after 4.2 s, path 1.25, 6.5 s; exact rule 0.1 deg | 15 done, 93% reached, 3352 s
+tiago7 pair 46: from 159 deg to 1.9 deg (at a limit), 5 deg after 7.0 s, path 1.35, 12.7 s; exact rule 0.1 deg | 16 done, 94% reached, 3632 s
+tiago7 pair 49: from 108 deg to 1.2 deg (free), 5 deg after 4.5 s, path 1.19, 8.5 s; exact rule 0.3 deg | 17 done, 94% reached, 3830 s
+tiago7 pair 52: from 105 deg to 1.3 deg (at a limit), 5 deg after 4.5 s, path 1.11, 8.3 s; exact rule 0.1 deg | 18 done, 94% reached, 4001 s
+tiago7 pair 55: from 127 deg to 1.5 deg (free), 5 deg after 7.8 s, path 1.50, 11.4 s; exact rule 0.1 deg | 19 done, 95% reached, 4279 s
+tiago7 pair 58: from 139 deg to 2.4 deg (free), 5 deg after 6.8 s, path 1.23, 10.9 s; exact rule 0.1 deg | 20 done, 95% reached, 4499 s
+tiago7 pair 61: from 139 deg to 1.6 deg (at a limit), 5 deg after 6.8 s, path 1.20, 13.2 s; exact rule 0.5 deg | 21 done, 95% reached, 4776 s
+tiago7 pair 64: from 111 deg to 1.9 deg (free), 5 deg after 4.0 s, path 1.14, 7.4 s; exact rule 0.3 deg | 22 done, 95% reached, 4960 s
+tiago7 pair 67: from 165 deg to 0.6 deg (at a limit), 5 deg after 6.5 s, path 1.11, 8.9 s; exact rule 0.2 deg | 23 done, 96% reached, 5161 s
+tiago7 pair 70: from 112 deg to 0.7 deg (free), 5 deg after 4.0 s, path 1.18, 6.9 s; exact rule 0.1 deg | 24 done, 96% reached, 5327 s
+tiago7 pair 73: from 114 deg to 0.9 deg (at a limit), 5 deg after 5.7 s, path 1.19, 9.5 s; exact rule 0.2 deg | 25 done, 96% reached, 5529 s
+tiago7 pair 76: from 162 deg to 0.9 deg (at a limit), 5 deg after 14.1 s, path 1.12, 18.4 s; exact rule 0.3 deg | 26 done, 96% reached, 5912 s
+tiago7 pair 79: from 157 deg to 1.6 deg (at a limit), 5 deg after 8.8 s, path 1.48, 14.4 s; exact rule 0.4 deg | 27 done, 96% reached, 6292 s
+tiago7 pair 82: from 110 deg to 0.6 deg (free), 5 deg after 5.1 s, path 1.21, 11.1 s; exact rule 0.3 deg | 28 done, 96% reached, 6494 s
+tiago7: 37620 neurons, 0.06 of real time, 28 trials (5 not run)
+reached 96% (exact rule 96%; of those the exact rule reaches: 100%); final error of reached 1.31 deg; 5 deg after 5.6 s; path 1.20 x shortest
+missed 1, of which 1 with a joint at a limit; 100% of trials settled, median duration 9.6 s
+written: /work/scripts/../docs/ik/results/data/reach_tiago7_1of3.json

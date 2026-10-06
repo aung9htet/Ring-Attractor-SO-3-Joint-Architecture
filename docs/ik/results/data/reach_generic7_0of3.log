@@ -1,0 +1,51 @@
+
+              -- N E S T --
+  Copyright (C) 2004 The NEST Initiative
+
+ Version: HEAD@41892a5
+ Built: Mar 24 2026 09:42:32
+
+ This program is provided AS IS and comes with
+ NO WARRANTY. See the file LICENSE for details.
+
+ Problems or suggestions?
+   Visit https://www.nest-simulator.org
+
+ Type 'nest.help()' to find out more about NEST.
+
+generic7 pair 0: from 108 deg to 1.9 deg (free), 5 deg after 3.6 s, path 1.09, 6.3 s; exact rule 0.2 deg | 1 done, 100% reached, 201 s
+generic7 pair 3: from 91 deg to 1.2 deg (free), 5 deg after 3.4 s, path 1.14, 7.0 s; exact rule 0.1 deg | 2 done, 100% reached, 387 s
+generic7 pair 6: from 168 deg to 3.3 deg (free), 5 deg after 5.2 s, path 1.07, 7.9 s; exact rule 0.3 deg | 3 done, 100% reached, 552 s
+generic7 pair 9: from 94 deg to 1.5 deg (free), 5 deg after 3.7 s, path 1.29, 7.3 s; exact rule 0.1 deg | 4 done, 100% reached, 712 s
+generic7 pair 12: from 138 deg to 2.0 deg (free), 5 deg after 4.6 s, path 1.08, 8.0 s; exact rule 0.0 deg | 5 done, 100% reached, 935 s
+generic7 pair 15: from 120 deg to 1.1 deg (free), 5 deg after 4.5 s, path 1.20, 7.8 s; exact rule 0.2 deg | 6 done, 100% reached, 1106 s
+generic7 pair 18: from 86 deg to 1.8 deg (free), 5 deg after 3.6 s, path 1.26, 6.4 s; exact rule 0.1 deg | 7 done, 100% reached, 1263 s
+generic7 pair 21: from 171 deg to 1.9 deg (free), 5 deg after 5.5 s, path 1.20, 10.8 s; exact rule 0.2 deg | 8 done, 100% reached, 1520 s
+generic7 pair 24: from 159 deg to 0.4 deg (free), 5 deg after 6.4 s, path 1.37, 8.8 s; exact rule 0.1 deg | 9 done, 100% reached, 1733 s
+generic7 pair 27: from 172 deg to 1.3 deg (free), 5 deg after 6.8 s, path 1.23, 9.6 s; exact rule 0.2 deg | 10 done, 100% reached, 1964 s
+generic7 pair 30: from 167 deg to 1.8 deg (free), 5 deg after 5.2 s, path 1.30, 9.4 s; exact rule 0.1 deg | 11 done, 100% reached, 2188 s
+generic7 pair 33: from 128 deg to 1.4 deg (free), 5 deg after 3.9 s, path 1.12, 7.5 s; exact rule 0.2 deg | 12 done, 100% reached, 2393 s
+generic7 pair 36: from 94 deg to 1.7 deg (free), 5 deg after 3.2 s, path 1.18, 6.8 s; exact rule 0.1 deg | 13 done, 100% reached, 2583 s
+generic7 pair 39: from 124 deg to 1.1 deg (free), 5 deg after 4.2 s, path 1.19, 7.5 s; exact rule 0.2 deg | 14 done, 100% reached, 2745 s
+generic7 pair 42: from 105 deg to 1.1 deg (free), 5 deg after 3.5 s, path 1.15, 8.3 s; exact rule 0.1 deg | 15 done, 100% reached, 2967 s
+generic7 pair 45: from 29 deg to 1.4 deg (free), 5 deg after 1.5 s, path 1.39, 6.4 s; exact rule 0.1 deg | 16 done, 100% reached, 3142 s
+generic7 pair 48: from 103 deg to 1.5 deg (free), 5 deg after 4.9 s, path 1.37, 12.3 s; exact rule 0.1 deg | 17 done, 100% reached, 3380 s
+generic7 pair 51: from 45 deg to 1.8 deg (free), 5 deg after 1.8 s, path 1.23, 7.2 s; exact rule 0.1 deg | 18 done, 100% reached, 3544 s
+generic7 pair 54: from 58 deg to 1.4 deg (free), 5 deg after 2.5 s, path 1.21, 7.1 s; exact rule 0.1 deg | 19 done, 100% reached, 3740 s
+generic7 pair 57: from 146 deg to 1.7 deg (free), 5 deg after 5.2 s, path 1.20, 9.5 s; exact rule 0.1 deg | 20 done, 100% reached, 3965 s
+generic7 pair 60: from 51 deg to 0.8 deg (free), 5 deg after 2.2 s, path 1.27, 8.4 s; exact rule 0.2 deg | 21 done, 100% reached, 4172 s
+generic7 pair 63: from 178 deg to 1.5 deg (free), 5 deg after 5.3 s, path 1.12, 9.7 s; exact rule 0.0 deg | 22 done, 100% reached, 4397 s
+generic7 pair 66: from 173 deg to 0.9 deg (free), 5 deg after 6.0 s, path 1.15, 9.9 s; exact rule 0.1 deg | 23 done, 100% reached, 4617 s
+generic7 pair 69: from 79 deg to 0.3 deg (free), 5 deg after 2.5 s, path 1.11, 6.1 s; exact rule 0.1 deg | 24 done, 100% reached, 4792 s
+generic7 pair 72: from 122 deg to 0.5 deg (free), 5 deg after 5.3 s, path 1.41, 8.7 s; exact rule 0.1 deg | 25 done, 100% reached, 5004 s
+generic7 pair 75: from 78 deg to 0.8 deg (free), 5 deg after 2.6 s, path 1.15, 6.5 s; exact rule 0.2 deg | 26 done, 100% reached, 5198 s
+generic7 pair 78: from 57 deg to 1.3 deg (free), 5 deg after 2.2 s, path 1.20, 5.5 s; exact rule 0.1 deg | 27 done, 100% reached, 5336 s
+generic7 pair 81: from 165 deg to 1.1 deg (free), 5 deg after 4.5 s, path 1.07, 7.8 s; exact rule 0.1 deg | 28 done, 100% reached, 5538 s
+generic7 pair 84: from 120 deg to 2.0 deg (free), 5 deg after 4.2 s, path 1.28, 7.6 s; exact rule 0.1 deg | 29 done, 100% reached, 5741 s
+generic7 pair 87: from 143 deg to 0.6 deg (free), 5 deg after 5.2 s, path 1.15, 9.1 s; exact rule 0.0 deg | 30 done, 100% reached, 5930 s
+generic7 pair 90: from 171 deg to 0.9 deg (free), 5 deg after 6.2 s, path 1.18, 9.8 s; exact rule 0.2 deg | 31 done, 100% reached, 6174 s
+generic7 pair 93: from 51 deg to 0.7 deg (free), 5 deg after 2.1 s, path 1.25, 5.3 s; exact rule 0.1 deg | 32 done, 100% reached, 6318 s
+generic7: 37620 neurons, 0.06 of real time, 32 trials (2 not run)
+reached 100% (exact rule 100%; of those the exact rule reaches: 100%); final error of reached 1.34 deg; 5 deg after 4.2 s; path 1.20 x shortest
+missed 0, of which 0 with a joint at a limit; 100% of trials settled, median duration 7.8 s
+written: /work/scripts/../docs/ik/results/data/reach_generic7_0of3.json

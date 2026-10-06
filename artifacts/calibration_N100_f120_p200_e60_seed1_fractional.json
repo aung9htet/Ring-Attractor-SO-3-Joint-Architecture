@@ -1,0 +1,45 @@
+{
+ "design": {
+  "model": {
+   "C_m": 250.0,
+   "V_th": 15.0,
+   "t_ref": 2.0,
+   "tau_m": 20.0,
+   "tau_syn": 5.0
+  },
+  "regularisation": 0.02,
+  "seed": 1,
+  "sizes": {
+   "entry": 60,
+   "feature": 120,
+   "norm": 120,
+   "output_ring": 100,
+   "product": 200,
+   "ring": 100
+  }
+ },
+ "fit": {
+  "feature_rms": 0.018679603116131826,
+  "norm_rms": 0.015721700095457498,
+  "product_rms": 0.011223847833481014,
+  "ring_active_neurons": 13,
+  "ring_index_error_mean": -0.0077754109691505575,
+  "ring_index_error_sd": 0.2060739034992885,
+  "ring_total_rate_hz": 786.3999999999999,
+  "scalar_rms": 0.008107142079832246,
+  "source_rms": 0.009049455547722626
+ },
+ "settings": {
+  "encoder_mode": "fractional",
+  "feature_tau": 15.0,
+  "format": 2,
+  "measure_ms": 1000.0,
+  "product_points": 25,
+  "regularisation": 0.02,
+  "ring_size": 100,
+  "scalar_points": 61,
+  "seconds": 36.6,
+  "seed": 1,
+  "settle_ms": 300.0
+ }
+}
