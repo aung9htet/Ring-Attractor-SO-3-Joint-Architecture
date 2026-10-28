@@ -1,0 +1,15 @@
+{
+ "fit": {
+  "bounded_rms": 0.027502032691581763,
+  "bounded_small_rms": 0.004933996486044629,
+  "half_rms": 0.019444166037136563,
+  "half_small_rms": 0.008341545689084694
+ },
+ "settings": {
+  "format": 1,
+  "points": 133,
+  "seconds": 15.5,
+  "seed": 1,
+  "widest": 2.2
+ }
+}

@@ -1,0 +1,6 @@
+source: 61 values, fit rms 0.0090 (3 s)
+scalar: fit rms 0.0081 (10 s)
+product: 625 pairs, fit rms 0.0112 (107 s)
+norm: 497 pairs, fit rms 0.0157 (167 s)
+feature: 146 ring positions, fit rms 0.0178 per tick; ring holds the written index to -0.02 +- 0.35 (302 s)
+written: ../out/calibration_N200_f120_p200_e60_seed1_fractional.npz

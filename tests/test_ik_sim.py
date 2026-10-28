@@ -124,6 +124,26 @@ class IkSimulatorPageTests(unittest.TestCase):
         simulator.handle({"command": "robot", "robot": "gazebo"})   # ignored
         self.assertEqual(simulator.tick()["robot"], "light")
 
+    def test_kangaroo_is_offered_only_for_its_chains(self):
+        from ring_so3.robots import LightRobot
+        from ring_so3.sim.ik_server import IkSimulator
+
+        class StandIn(LightRobot):                       # a light robot that also answers the lock-step block
+            sim_time_s, lag = 0.0, 0.0
+            link = type("Link", (), {"frames": lambda self: 0})()
+
+        simulator = IkSimulator(make, "kangaroo_left4", realtime=False, robots=("light", "kangaroo"),
+                                make_robot=lambda name, chain: StandIn(chain))
+        offered = simulator.config()["robot_chains"]["kangaroo"]
+        self.assertIn("kangaroo_left4", offered)
+        self.assertFalse([name for name in offered if name.startswith("tiago")])
+        simulator.handle({"command": "robot", "robot": "kangaroo"})
+        self.assertEqual(simulator.tick()["robot"], "kangaroo")
+        simulator.handle({"command": "chain", "chain": "tiago7"})
+        simulator.tick()
+        simulator.handle({"command": "robot", "robot": "kangaroo"})   # ignored
+        self.assertEqual(simulator.tick()["robot"], "light")
+
     def test_page(self):
         from ring_so3.sim.ik_page import IK_PAGE_HTML
 

@@ -6,6 +6,16 @@
     docker/run.bash gazebo exec ik-gazebo -- 'python3 -B scripts/run_ik_gazebo.py --pairs 30 --method dls --out docs/ik/results/data/gazebo_dls_0of1.json'
     docker/run.bash gazebo down ik-gazebo
 
+The same on the MuJoCo Kangaroo (side from the chain name):
+
+    docker/run.bash kangaroo up NAME
+    docker/run.bash kangaroo exec NAME -- 'python3 -B scripts/run_ik_gazebo.py --chain kangaroo_left4 --pairs 30 --max-minutes 1000 --out docs/kangaroo/results/data/reach/mujoco_ring_left.json'
+    docker/run.bash kangaroo down NAME
+
+A Kangaroo run takes hours (the network runs well below real time), hence --max-minutes 1000; an interrupted run is
+finished with --only I,J,... and a different --out (the checkpoint overwrites --out; kangaroo_report reads one file
+per arm and method).
+
 The first ``--pairs`` test pairs of ``tiago7``.  Physics is advanced in lock step with the network
 (50 ms per tick), so the network being slower than real time does not matter.  ``--method``: ``ring``
 (the spiking IK) or a standard method that reads the exact joint angles.
@@ -17,6 +27,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
+from ring_so3.chains import KANGAROO_MODELS  # noqa: E402
 from ring_so3.experiments import write_json  # noqa: E402
 from ring_so3.ik import experiments  # noqa: E402
 from ring_so3.ik.design import IkDesign  # noqa: E402
@@ -27,7 +38,7 @@ from ring_so3.standard.targets import EXACT_METHODS  # noqa: E402
 def main(argv=None):
     defaults = IkDesign()
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--chain", default="tiago7", choices=["tiago%d" % n for n in range(2, 8)])
+    parser.add_argument("--chain", default="tiago7", choices=["tiago%d" % n for n in range(2, 8)] + list(KANGAROO_MODELS))
     parser.add_argument("--method", default="ring", choices=("ring",) + EXACT_METHODS)
     parser.add_argument("--kappa", type=float, default=defaults.kappa)
     parser.add_argument("--pairs", type=int, default=30)
@@ -39,17 +50,34 @@ def main(argv=None):
     args = parser.parse_args(argv)
 
     import nest
-    from ring_so3.gazebo.link import RosLink
-    from ring_so3.robots import GazeboRobot
 
-    link = RosLink()
-    document = experiments.reach_run(
-        nest, args.chain, args.pairs, IkDesign(kappa=args.kappa), DEVELOPMENT_SEED if args.development else TEST_SEED, (0, 1),
-        args.max_minutes, only=[int(v) for v in args.only.split(",")] if args.only else None,
-        make_robot=lambda chain: GazeboRobot(chain, link), method=args.method, checkpoint=args.out, threads=args.threads)
+    kangaroo = args.chain in KANGAROO_MODELS
+    if kangaroo:
+        from ring_so3.kangaroo.link import Ros2Link
+        from ring_so3.robots import KangarooRobot
+
+        link = Ros2Link(args.chain.split("_")[1][:-1])
+        make_robot = lambda chain: KangarooRobot(chain, link)
+    else:
+        from ring_so3.gazebo.link import RosLink
+        from ring_so3.robots import GazeboRobot
+
+        link = RosLink()
+        make_robot = lambda chain: GazeboRobot(chain, link)
+    try:
+        document = experiments.reach_run(
+            nest, args.chain, args.pairs, IkDesign(kappa=args.kappa), DEVELOPMENT_SEED if args.development else TEST_SEED, (0, 1),
+            args.max_minutes, only=[int(v) for v in args.only.split(",")] if args.only else None,
+            make_robot=make_robot, method=args.method, checkpoint=args.out, threads=args.threads)
+    finally:
+        if kangaroo:
+            try:
+                link.close()
+            except Exception as error:            # must not hide the run's own exception
+                print("closing the link failed: %s" % error, file=sys.stderr)
     write_json(args.out, document)
     s = document["summary"]
-    print("%s in Gazebo, %s: %d trials (%d not run)" % (args.chain, args.method, s["trials"], len(document["skipped"])))
+    print("%s in %s, %s: %d trials (%d not run)" % (args.chain, "MuJoCo" if kangaroo else "Gazebo", args.method, s["trials"], len(document["skipped"])))
     if s["trials"]:
         print("reached %.0f%% (exact rule on the light robot %.0f%%); final error of reached %.2f deg; 5 deg after %.1f s; path %.2f x shortest; missed %d (%d at a limit)" % (
             100 * s["reached"], 100 * s["exact_reached"], s["final_error_reached_median_deg"] or float("nan"),

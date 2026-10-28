@@ -155,10 +155,11 @@ function buildControls() {
   const ms = $("method"); ms.innerHTML = ""; labels = {};
   for (const m of cfg.methods) { const o = document.createElement("option"); o.value = m.name; o.textContent = m.label; ms.appendChild(o); labels[m.name] = m.label; }
   const rs = $("robot"); rs.innerHTML = "";
-  for (const name of ["light", "gazebo"]) {
+  const labels3 = {light: "Light robot (no dynamics)", gazebo: "TIAGo in Gazebo", kangaroo: "Kangaroo in MuJoCo"};
+  for (const name of Object.keys(labels3)) {
     const o = document.createElement("option"); o.value = name;
-    o.textContent = name === "light" ? "Light robot (no dynamics)" : "TIAGo in Gazebo";
-    o.disabled = name === "gazebo" && (!cfg.robots.includes("gazebo") || !cfg.gazebo_chains.includes(cfg.chain));
+    o.textContent = labels3[name];
+    o.disabled = name !== "light" && !(cfg.robot_chains[name] || []).includes(cfg.chain);
     rs.appendChild(o);
   }
   const box = $("joints"); box.innerHTML = ""; sliders = [];
@@ -363,13 +364,13 @@ function drawRuns() {
   g.strokeStyle = css("--muted"); g.setLineDash([4, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(X(0), Y(5)); g.lineTo(X(xmax), Y(5)); g.stroke(); g.setLineDash([]);
   for (const r of runs) {
     g.strokeStyle = css("--m-" + r.method); g.lineWidth = r.live ? 2.6 : 1.8; g.globalAlpha = r.live ? 1 : 0.8; g.lineJoin = "round";
-    g.setLineDash(r.robot === "gazebo" ? [6, 3] : []); g.beginPath();
+    g.setLineDash(r.robot !== "light" ? [6, 3] : []); g.beginPath();
     r.t.forEach((t, i) => i ? g.lineTo(X(t), Y(r.error[i])) : g.moveTo(X(t), Y(r.error[i]))); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
   }
   const body = $("runtable").tBodies[0]; body.innerHTML = "";
   for (const r of runs.slice().reverse()) {
     const tr = document.createElement("tr");
-    const cells = ["", r.robot === "gazebo" ? "Gazebo" : "light", r.start_error.toFixed(0) + "°", r.reached_s === null ? "not yet" : r.reached_s.toFixed(1) + " s",
+    const cells = ["", ({gazebo: "Gazebo", kangaroo: "Kangaroo"})[r.robot] || "light", r.start_error.toFixed(0) + "°", r.reached_s === null ? "not yet" : r.reached_s.toFixed(1) + " s",
                    r.final_error === null ? "–" : r.final_error.toFixed(1) + "°", r.path_ratio === null ? "–" : r.path_ratio.toFixed(2)];
     cells.forEach((text, i) => { const td = document.createElement("td"); td.textContent = text; tr.appendChild(td); });
     const key = document.createElement("span"); key.className = "key"; key.style.background = css("--m-" + r.method);
@@ -434,6 +435,10 @@ function drawRings() {
 function drawGazebo() {
   if (!snap || !cfg) return;
   const img = $("gz"), note = $("gznote"), gzb = snap.gazebo;
+  if (snap.robot === "kangaroo") {
+    img.hidden = true; note.hidden = false; note.textContent = "MuJoCo shows the robot in its own window";
+    $("gzline").textContent = "MuJoCo time " + gzb.sim_time.toFixed(2) + " s, stepped " + cfg.tick_ms + " ms per tick of the network · largest distance of a joint from its target " + Math.max(...gzb.lag.map(v => Math.abs(deg(v)))).toFixed(1) + "°"; return;
+  }
   if (!cfg.robots.includes("gazebo")) {
     img.hidden = true; note.hidden = false;
     note.textContent = "Gazebo is not running beside this simulator. Start it with docker/run.bash gazebo up (see the README), then start the simulator inside it; the light robot works without.";
@@ -441,7 +446,7 @@ function drawGazebo() {
   }
   if (!gzb) {
     img.hidden = true; note.hidden = false;
-    note.textContent = cfg.gazebo_chains.includes(cfg.chain) ? "Gazebo is running. Choose \"TIAGo in Gazebo\" as the robot to move its arm." : "Gazebo has the TIAGo arm only: choose one of the tiago chains.";
+    note.textContent = (cfg.robot_chains.gazebo || []).includes(cfg.chain) ? "Gazebo is running. Choose \"TIAGo in Gazebo\" as the robot to move its arm." : "Gazebo has the TIAGo arm only: choose one of the tiago chains.";
     $("gzline").textContent = ""; return;
   }
   if (gzb.frames > 0 && gzb.frames !== gzFrames && !gzLoading) {

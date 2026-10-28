@@ -1,0 +1,76 @@
+Kangaroo ready after 9 s
+A simulator started in this container is served on http://localhost:8782/ . Stop everything with: docker/run.bash kangaroo down km_right
+kangaroo_right4 pair 0: from 151 deg to 1.1 deg (free), 5 deg after 8.4 s, path 1.36, 13.7 s; exact rule 0.2 deg | 1 done, 100% reached, 957 s
+kangaroo_right4 pair 1: from 48 deg to 0.2 deg (free), 5 deg after 2.9 s, path 1.24, 6.0 s; exact rule 0.4 deg | 2 done, 100% reached, 2024 s
+kangaroo_right4 pair 2: from 100 deg to 8.4 deg (at a limit), 5 deg after nan s, path 1.29, 12.8 s; exact rule 8.2 deg | 3 done, 67% reached, 2170 s
+kangaroo_right4 pair 3: from 137 deg to 1.1 deg (at a limit), 5 deg after 13.6 s, path 1.30, 20.0 s; exact rule 1.1 deg | 4 done, 75% reached, 2402 s
+kangaroo_right4 pair 4: from 81 deg to 1.5 deg (at a limit), 5 deg after 6.7 s, path 1.32, 14.5 s; exact rule 1.7 deg | 5 done, 80% reached, 3667 s
+kangaroo_right4 pair 5: from 171 deg to 68.7 deg (at a limit), 5 deg after nan s, path 0.82, 20.0 s; exact rule 64.6 deg | 6 done, 67% reached, 3889 s
+kangaroo_right4 pair 6: from 97 deg to 1.2 deg (free), 5 deg after 7.3 s, path 1.54, 11.1 s; exact rule 0.3 deg | 7 done, 71% reached, 4051 s
+kangaroo_right4 pair 7: from 163 deg to 1.1 deg (free), 5 deg after 7.6 s, path 1.22, 10.7 s; exact rule 107.8 deg | 8 done, 75% reached, 4176 s
+kangaroo_right4 pair 8: from 130 deg to 1.5 deg (free), 5 deg after 15.3 s, path 1.29, 20.0 s; exact rule 0.8 deg | 9 done, 78% reached, 4359 s
+kangaroo_right4 pair 9: from 88 deg to 0.7 deg (free), 5 deg after 12.5 s, path 1.24, 15.9 s; exact rule 0.3 deg | 10 done, 80% reached, 4527 s
+kangaroo_right4 pair 10: from 56 deg to 1.4 deg (free), 5 deg after 4.1 s, path 1.23, 6.8 s; exact rule 0.1 deg | 11 done, 82% reached, 4602 s
+kangaroo_right4 pair 11: from 135 deg to 1.0 deg (free), 5 deg after 10.3 s, path 1.51, 14.7 s; exact rule 0.4 deg | 12 done, 83% reached, 4765 s
+kangaroo_right4 pair 12: from 148 deg to 2.4 deg (free), 5 deg after 9.4 s, path 1.19, 18.8 s; exact rule 0.6 deg | 13 done, 85% reached, 4946 s
+kangaroo_right4 pair 13: from 139 deg to 2.5 deg (free), 5 deg after 14.0 s, path 1.31, 20.0 s; exact rule 1.1 deg | 14 done, 86% reached, 5142 s
+kangaroo_right4 pair 14: from 79 deg to 2.0 deg (free), 5 deg after 3.5 s, path 1.09, 7.9 s; exact rule 0.6 deg | 15 done, 87% reached, 6395 s
+kangaroo_right4 pair 15: from 175 deg to 62.5 deg (at a limit), 5 deg after nan s, path 1.34, 20.0 s; exact rule 62.6 deg | 16 done, 81% reached, 7781 s
+kangaroo_right4 pair 16: from 110 deg to 1.4 deg (at a limit), 5 deg after 6.5 s, path 1.23, 10.6 s; exact rule 0.2 deg | 17 done, 82% reached, 7925 s
+kangaroo_right4 pair 17: from 93 deg to 2.0 deg (free), 5 deg after 5.3 s, path 1.12, 9.1 s; exact rule 0.2 deg | 18 done, 83% reached, 8045 s
+kangaroo_right4 pair 18: from 97 deg to 1.0 deg (free), 5 deg after 7.0 s, path 1.21, 10.0 s; exact rule 0.4 deg | 19 done, 84% reached, 9334 s
+kangaroo_right4 pair 19: from 169 deg to 57.9 deg (at a limit), 5 deg after nan s, path 1.03, 16.0 s; exact rule 57.2 deg | 20 done, 80% reached, 10663 s
+kangaroo_right4 pair 20: from 126 deg to 59.5 deg (at a limit), 5 deg after nan s, path 0.77, 13.9 s; exact rule 58.8 deg | 21 done, 76% reached, 14758 s
+kangaroo_right4 pair 21: from 160 deg to 1.0 deg (free), 5 deg after 14.9 s, path 1.36, 17.8 s; exact rule 0.3 deg | 22 done, 77% reached, 15043 s
+kangaroo_right4 pair 22: from 70 deg to 1.6 deg (free), 5 deg after 10.1 s, path 1.29, 15.0 s; exact rule 0.8 deg | 23 done, 78% reached, 15296 s
+kangaroo_right4 pair 23: from 88 deg to 1.1 deg (free), 5 deg after 4.5 s, path 1.18, 13.9 s; exact rule 1.1 deg | 24 done, 79% reached, 17741 s
+kangaroo_right4 pair 24: from 137 deg to 1.4 deg (free), 5 deg after 8.5 s, path 1.19, 11.1 s; exact rule 0.2 deg | 25 done, 80% reached, 18002 s
+kangaroo_right4 pair 25: from 25 deg to 0.7 deg (free), 5 deg after 1.8 s, path 1.37, 4.9 s; exact rule 0.1 deg | 26 done, 81% reached, 20349 s
+kangaroo_right4 pair 26: from 120 deg to 1.5 deg (free), 5 deg after 5.8 s, path 1.32, 12.3 s; exact rule 2.8 deg | 27 done, 81% reached, 20618 s
+kangaroo_right4 pair 27: from 123 deg to 0.9 deg (at a limit), 5 deg after 7.9 s, path 1.35, 11.1 s; exact rule 0.4 deg | 28 done, 82% reached, 23757 s
+kangaroo_right4 pair 28: from 164 deg to 5.3 deg (at a limit), 5 deg after nan s, path 1.15, 20.0 s; exact rule 2.2 deg | 29 done, 79% reached, 31541 s
+kangaroo_right4 pair 29: from 173 deg to 18.4 deg (at a limit), 5 deg after nan s, path 1.16, 17.4 s; exact rule 16.2 deg | 30 done, 77% reached, 32752 s
+kangaroo_right4 in MuJoCo, ring: 30 trials (0 not run)
+reached 77% (exact rule on the light robot 77%); final error of reached 1.19 deg; 5 deg after 7.6 s; path 1.29 x shortest; missed 7 (7 at a limit)
+written: docs/kangaroo/results/data/reach/mujoco_ring_right.json
+stopped km_right
+Kangaroo ready after 20 s
+A simulator started in this container is served on http://localhost:8782/ . Stop everything with: docker/run.bash kangaroo down km_right
+kangaroo_right4 pair 0: from 151 deg to 113.4 deg (at a limit), 5 deg after nan s, path 0.34, 20.0 s; exact rule 0.2 deg | 1 done, 0% reached, 3407 s
+kangaroo_right4 pair 1: from 48 deg to 0.3 deg (free), 5 deg after 2.6 s, path 1.06, 6.5 s; exact rule 0.4 deg | 2 done, 50% reached, 3526 s
+kangaroo_right4 pair 2: from 100 deg to 8.1 deg (at a limit), 5 deg after nan s, path 0.99, 14.5 s; exact rule 8.2 deg | 3 done, 33% reached, 3747 s
+kangaroo_right4 pair 3: from 137 deg to 0.1 deg (at a limit), 5 deg after 9.3 s, path 1.03, 13.0 s; exact rule 1.1 deg | 4 done, 50% reached, 3993 s
+kangaroo_right4 pair 4: from 81 deg to 0.4 deg (at a limit), 5 deg after 7.7 s, path 1.03, 11.5 s; exact rule 1.7 deg | 5 done, 60% reached, 5906 s
+kangaroo_right4 pair 5: from 171 deg to 51.5 deg (at a limit), 5 deg after nan s, path 0.74, 20.0 s; exact rule 64.6 deg | 6 done, 50% reached, 6225 s
+kangaroo_right4 pair 6: from 97 deg to 0.3 deg (free), 5 deg after 7.0 s, path 1.23, 10.8 s; exact rule 0.3 deg | 7 done, 57% reached, 6438 s
+kangaroo_right4 pair 7: from 163 deg to 0.4 deg (at a limit), 5 deg after 11.1 s, path 1.15, 14.8 s; exact rule 107.8 deg | 8 done, 62% reached, 6676 s
+kangaroo_right4 pair 8: from 130 deg to 0.4 deg (at a limit), 5 deg after 12.7 s, path 1.04, 16.5 s; exact rule 0.8 deg | 9 done, 67% reached, 6933 s
+kangaroo_right4 pair 9: from 88 deg to 0.5 deg (free), 5 deg after 9.2 s, path 1.00, 13.0 s; exact rule 0.3 deg | 10 done, 70% reached, 7171 s
+kangaroo_right4 pair 10: from 56 deg to 0.3 deg (free), 5 deg after 3.5 s, path 1.00, 7.2 s; exact rule 0.1 deg | 11 done, 73% reached, 7313 s
+kangaroo_right4 pair 11: from 135 deg to 0.3 deg (free), 5 deg after 8.6 s, path 1.01, 12.4 s; exact rule 0.4 deg | 12 done, 75% reached, 7545 s
+kangaroo_right4 pair 12: from 148 deg to 0.2 deg (at a limit), 5 deg after 9.0 s, path 1.02, 12.8 s; exact rule 0.6 deg | 13 done, 77% reached, 7805 s
+kangaroo_right4 pair 13: from 139 deg to 0.4 deg (at a limit), 5 deg after 10.1 s, path 1.01, 14.0 s; exact rule 1.1 deg | 14 done, 79% reached, 8029 s
+kangaroo_right4 pair 14: from 79 deg to 0.5 deg (at a limit), 5 deg after 3.5 s, path 1.02, 7.3 s; exact rule 0.6 deg | 15 done, 80% reached, 10006 s
+kangaroo_right4 pair 15: from 175 deg to 86.7 deg (at a limit), 5 deg after nan s, path 0.55, 18.0 s; exact rule 62.6 deg | 16 done, 75% reached, 12161 s
+kangaroo_right4 pair 16: from 110 deg to 0.4 deg (at a limit), 5 deg after 6.0 s, path 1.02, 9.8 s; exact rule 0.2 deg | 17 done, 76% reached, 12385 s
+kangaroo_right4 pair 17: from 93 deg to 0.4 deg (free), 5 deg after 6.0 s, path 1.01, 9.7 s; exact rule 0.2 deg | 18 done, 78% reached, 12579 s
+kangaroo_right4 pair 18: from 97 deg to 0.4 deg (free), 5 deg after 6.0 s, path 1.02, 9.8 s; exact rule 0.4 deg | 19 done, 79% reached, 14659 s
+kangaroo_right4 pair 19: from 169 deg to 69.5 deg (at a limit), 5 deg after nan s, path 0.65, 20.0 s; exact rule 57.2 deg | 20 done, 75% reached, 16882 s
+kangaroo_right4 pair 20: from 126 deg to 57.5 deg (at a limit), 5 deg after nan s, path 0.72, 18.0 s; exact rule 58.8 deg | 21 done, 71% reached, 19076 s
+kangaroo_right4 pair 21: from 160 deg to 0.2 deg (free), 5 deg after 12.2 s, path 1.07, 16.0 s; exact rule 0.3 deg | 22 done, 73% reached, 19348 s
+kangaroo_right4 pair 22: from 70 deg to 0.5 deg (free), 5 deg after 7.7 s, path 1.04, 11.5 s; exact rule 0.8 deg | 23 done, 74% reached, 19547 s
+kangaroo_right4 pair 23: from 88 deg to 0.5 deg (at a limit), 5 deg after 4.5 s, path 1.01, 8.3 s; exact rule 1.1 deg | 24 done, 75% reached, 21537 s
+kangaroo_right4 pair 24: from 137 deg to 0.5 deg (at a limit), 5 deg after 8.2 s, path 1.01, 12.0 s; exact rule 0.2 deg | 25 done, 76% reached, 21744 s
+kangaroo_right4 pair 25: from 25 deg to 0.4 deg (free), 5 deg after 1.6 s, path 1.01, 5.3 s; exact rule 0.1 deg | 26 done, 77% reached, 23634 s
+kangaroo_right4 pair 26: from 120 deg to 0.2 deg (free), 5 deg after 6.2 s, path 1.25, 10.0 s; exact rule 2.8 deg | 27 done, 78% reached, 23813 s
+kangaroo_right4 pair 27: from 123 deg to 0.3 deg (at a limit), 5 deg after 7.5 s, path 1.09, 11.2 s; exact rule 0.4 deg | 28 done, 79% reached, 25900 s
+kangaroo_right4 pair 28: from 164 deg to 0.8 deg (at a limit), 5 deg after 18.4 s, path 1.06, 20.0 s; exact rule 2.2 deg | 29 done, 79% reached, 26219 s
+kangaroo_right4 pair 29: from 173 deg to 13.7 deg (at a limit), 5 deg after nan s, path 1.04, 16.1 s; exact rule 16.2 deg | 30 done, 77% reached, 28414 s
+kangaroo_right4 in MuJoCo, dls: 30 trials (0 not run)
+reached 77% (exact rule on the light robot 77%); final error of reached 0.39 deg; 5 deg after 7.7 s; path 1.02 x shortest; missed 7 (7 at a limit)
+written: docs/kangaroo/results/data/reach/mujoco_dls_right.json
+stopped km_right
+
+real	1020m11.278s
+user	0m3.463s
+sys	0m0.962s

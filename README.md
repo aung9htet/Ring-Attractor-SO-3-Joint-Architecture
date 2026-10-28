@@ -266,6 +266,10 @@ Date 2026-10-05, branch `fk-chain`.
 - **A note on the paper:** its Eq. 25 gives the order lift · pitch · yaw, its Eq. 26 takes
   the angles from the matrix as for yaw · pitch · lift. The code follows Eq. 26
   ([`docs/architecture.md`](docs/architecture.md)).
+- **Kangaroo (branch `kangaroo-migration`, 2026-10-26):** both 4-joint arms of PAL's Kangaroo in
+  MuJoCo, lock-stepped. Held poses median 0.79° / p90 1.32° at most; reaches 76.67% on both arms,
+  as the exact rule, every miss with a joint at a limit; the calibration re-run differs from `artifacts/`
+  (open) ([`docs/kangaroo/README.md`](docs/kangaroo/README.md)).
 - **Next:** inverse kinematics toward an orientation goal
   ([`docs/future-ik.md`](docs/future-ik.md)), and the position of the end effector, which
   with this orientation gives the full pose (repo `Ring-Attractor-SE-3-Joint-Architecture`).
@@ -300,6 +304,7 @@ Paths are relative to the repo root.
 | IK simulator | `ring_so3/sim/ik_server.py`, `ring_so3/sim/ik_page.py`, `scripts/ik_simulator.py`, `scripts/record_ik_session.py` | this page, section 11 | `docs/ik/results/videos/` |
 | IK architecture drawing | `scripts/draw_ik_architecture.py` | [`docs/ik/architecture.md`](docs/ik/architecture.md), section 1 | `docs/ik/figures/architecture.png`, `architecture_tiago7.png` |
 | The network in spikes: census and figures | `scripts/spike_census.py` | [`TECHNICAL.md`](TECHNICAL.md), part III | `docs/spikes/`, `docs/figures/spikes_neuron.png`, `spikes_forward.png`, `spikes_ik.png` |
+| Kangaroo in MuJoCo: chains, lock-step link, container, reaches, report | `ring_so3/chains.py`, `ring_so3/kangaroo/link.py`, `ring_so3/robots.py`, `docker/kangaroo/`, `scripts/run_ik_gazebo.py`, `scripts/kangaroo_report.py` | [`docs/kangaroo/README.md`](docs/kangaroo/README.md), this page, section 11.6 | `docs/kangaroo/results/` |
 | What is done, what is open, what SE(3) needs | - | [`docs/ik/status.md`](docs/ik/status.md), [`docs/ik/future-se3.md`](docs/ik/future-se3.md) | - |
 
 ## 11. Inverse kinematics for orientation
@@ -450,4 +455,31 @@ docker/run.bash nest --out /tmp/ring-so3 -- 'python3 -B scripts/ik_example.py'
 
 `scripts/ik_example.py` builds the network for a 3-joint arm, gives the hand one goal and
 prints the distance from it every half second; it is the shortest way into the code.
+
+### 11.6 With the Kangaroo in MuJoCo as the robot
+
+Same three steps as 11.2, with the `kangaroo` container. Each in a terminal at the root of this repo.
+
+**1. Start the Kangaroo** (MuJoCo with its own window; it returns when the sim is ready).
+
+```bash
+docker/run.bash kangaroo up ik-kangaroo
+```
+
+**2. Start the simulator beside it.** When it prints "IK simulator ready", open
+<http://localhost:8765/>; the robot selector already says "Kangaroo in MuJoCo". The chain
+selector switches arms (`kangaroo_left4`, `kangaroo_right4`).
+
+```bash
+docker/run.bash kangaroo exec ik-kangaroo -- 'python3 -B scripts/ik_simulator.py --chain kangaroo_left4 --kangaroo'
+```
+
+**3. Stop.** Ctrl-C in the terminal of step 2, then:
+
+```bash
+docker/run.bash kangaroo down ik-kangaroo
+```
+
+What to expect: MuJoCo's own window shows the robot (the page has no picture, only the
+sim-time and lag line); the simulation advances 50 ms per tick of the network.
 

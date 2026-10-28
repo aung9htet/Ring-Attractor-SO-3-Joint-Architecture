@@ -1,0 +1,173 @@
+{
+ "commit": "9e3ed24-dirty",
+ "date": "2026-10-27",
+ "inputs": [
+  {
+   "path": "static/kangaroo_left4.json",
+   "size": 246727,
+   "sha256": "0ad7d171e0b769d9fd654c290884de5951ec41baa41ebaccafd350ed2c49a15c",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "pose_seed": 20261005
+   }
+  },
+  {
+   "path": "static/kangaroo_right4.json",
+   "size": 246987,
+   "sha256": "c22bb371e45948238ef745d7f51e0b59afa4bc18c7dce3897c8d44c8d86725a9",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "pose_seed": 20261005
+   }
+  },
+  {
+   "path": "tracking/kangaroo_left4_0.25.json",
+   "size": 2271211,
+   "sha256": "7c07ceb7873281a7fb9ae8d13df386fa48f7d86b04b85b04d1f59eb562d1cf82",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "goal_seed": 20261006
+   }
+  },
+  {
+   "path": "tracking/kangaroo_left4_0.50.json",
+   "size": 1257598,
+   "sha256": "3d4a5fdea0a053fc345761b5ebc0f225071263de94fcce116780d505a9f5a406",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "goal_seed": 20261006
+   }
+  },
+  {
+   "path": "tracking/kangaroo_left4_1.00.json",
+   "size": 761491,
+   "sha256": "4444a2fa52d8823c459eac8e925be0d97c5c0d4d7b90a2c9eaf1a4b40b5180dc",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "goal_seed": 20261006
+   }
+  },
+  {
+   "path": "tracking/kangaroo_right4_0.25.json",
+   "size": 2290072,
+   "sha256": "10110167d873989febccb3c63814979458a2d06086e12f26379a1a33b215705f",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "goal_seed": 20261006
+   }
+  },
+  {
+   "path": "tracking/kangaroo_right4_0.50.json",
+   "size": 1267447,
+   "sha256": "4ae0ba7604e774afb70a1bfbc9c15169e0f3da41eb4d066ead0829b2227af45b",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "goal_seed": 20261006
+   }
+  },
+  {
+   "path": "tracking/kangaroo_right4_1.00.json",
+   "size": 767154,
+   "sha256": "808cfef6020fd6af500aeb771f3f32db0a7b60573ae0997e182853e8682498f3",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "goal_seed": 20261006
+   }
+  },
+  {
+   "path": "reach/light_ring_left.json",
+   "size": 310129,
+   "sha256": "6e9aaa57ebd5368f18613f6a2cdd5a4825a14c0feed228025ab7e6710bc41cad",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "pair_seed": 20261026
+   }
+  },
+  {
+   "path": "reach/mujoco_ring_left.json",
+   "size": 311994,
+   "sha256": "eacce4ee330fb7a44ec2a3a8ee9646a0071adc2f731eee09336020ab92d0f113",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 8,
+    "pair_seed": 20261026
+   }
+  },
+  {
+   "path": "reach/mujoco_dls_left.json",
+   "size": 291134,
+   "sha256": "e349c0bb6d8c4ab95482e3859577ee6f616efffb2693d5af087a83adc54ba517",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 8,
+    "pair_seed": 20261026
+   }
+  },
+  {
+   "path": "reach/light_ring_right.json",
+   "size": 315141,
+   "sha256": "17098bc8b2762d17f015d4deb1e912db1a58ce3c24be4e4b1d7d4642c82ab89c",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 6,
+    "pair_seed": 20261026
+   }
+  },
+  {
+   "path": "reach/mujoco_ring_right.json",
+   "size": 309889,
+   "sha256": "e40eab28a9cecf0a7f09ac9d84bc2b565f91d8f360409d0d3e79e3c23b8257df",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 8,
+    "pair_seed": 20261026
+   }
+  },
+  {
+   "path": "reach/mujoco_dls_right.json",
+   "size": 292447,
+   "sha256": "602bc84669d75105bbcc3f1693dc1d6404e8bc0617a0bbad756d1d7c02cb5f62",
+   "seeds_threads": {
+    "design_seed": 1,
+    "seed": 1,
+    "threads": 8,
+    "pair_seed": 20261026
+   }
+  },
+  {
+   "path": "calibration/comparison.json",
+   "size": 2360,
+   "sha256": "ecc36c5ed34b3f36621a5b4285b733380a6444ef604baf957935b3e3cccd5b4f"
+  }
+ ],
+ "missing": [],
+ "figures": [
+  "static_error",
+  "error_along_arm",
+  "tracking",
+  "reach_error_over_time",
+  "mujoco_lag"
+ ]
+}

@@ -1,0 +1,105 @@
+[
+ {
+  "file": "calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "decoders_feature",
+  "shape": [
+   120,
+   2
+  ],
+  "same_shape": true,
+  "max_abs_difference": 0.00016142447779826197,
+  "max_abs_value": 0.0005760349293201048,
+  "relative": 0.28023383580018596,
+  "identical": false
+ },
+ {
+  "file": "calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "decoders_norm",
+  "shape": [
+   120,
+   1
+  ],
+  "same_shape": true,
+  "max_abs_difference": 3.571118010678442e-15,
+  "max_abs_value": 0.001206057560364606,
+  "relative": 2.9609847224860887e-12,
+  "identical": false
+ },
+ {
+  "file": "calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "decoders_product",
+  "shape": [
+   200,
+   1
+  ],
+  "same_shape": true,
+  "max_abs_difference": 1.192263247764419e-15,
+  "max_abs_value": 0.0005792353153415197,
+  "relative": 2.058340049693716e-12,
+  "identical": false
+ },
+ {
+  "file": "calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "decoders_scalar",
+  "shape": [
+   60,
+   1
+  ],
+  "same_shape": true,
+  "max_abs_difference": 1.4853027661965168e-15,
+  "max_abs_value": 0.00045512627757736407,
+  "relative": 3.2634959556780138e-12,
+  "identical": false
+ },
+ {
+  "file": "calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "decoders_source",
+  "shape": [
+   60,
+   1
+  ],
+  "same_shape": true,
+  "max_abs_difference": 1.1773351391020093e-15,
+  "max_abs_value": 0.00047677191400780756,
+  "relative": 2.4693886206617643e-12,
+  "identical": false
+ },
+ {
+  "file": "calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "ring_profile",
+  "shape": [
+   200
+  ],
+  "same_shape": true,
+  "max_abs_difference": 0.5999999999999943,
+  "max_abs_value": 70.4,
+  "relative": 0.00852272727272719,
+  "identical": false
+ },
+ {
+  "file": "ik_calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "decoders_bounded",
+  "shape": [
+   60,
+   1
+  ],
+  "same_shape": true,
+  "max_abs_difference": 8.700722434196173e-16,
+  "max_abs_value": 0.002050725456929116,
+  "relative": 4.242753414308894e-13,
+  "identical": false
+ },
+ {
+  "file": "ik_calibration_N200_f120_p200_e60_seed1_fractional",
+  "array": "decoders_half",
+  "shape": [
+   60,
+   1
+  ],
+  "same_shape": true,
+  "max_abs_difference": 6.7537663829553285e-16,
+  "max_abs_value": 0.0013631353366324735,
+  "relative": 4.95458242586537e-13,
+  "identical": false
+ }
+]

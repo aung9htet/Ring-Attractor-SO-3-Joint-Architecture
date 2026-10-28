@@ -1,0 +1,52 @@
+kangaroo_left4: 50 poses, error median 0.80 p90 1.37 deg, 781 s
+kangaroo_left4: 100 poses, error median 0.82 p90 1.37 deg, 1397 s
+kangaroo_left4: 150 poses, error median 0.79 p90 1.35 deg, 2053 s
+kangaroo_left4: 200 poses, error median 0.80 p90 1.34 deg, 2782 s
+kangaroo_left4: 250 poses, error median 0.79 p90 1.30 deg, 3561 s
+kangaroo_left4: 300 poses, error median 0.79 p90 1.31 deg, 4283 s
+written: docs/kangaroo/results/data/static/kangaroo_left4.json (396 rows, 1399 s simulated in 5036 s)
+kangaroo_left4 at 0.25 rad/s: 5255 ticks, error median 3.14 deg while moving, 0.89 deg at rest
+written: docs/kangaroo/results/data/tracking/kangaroo_left4_0.25.json (5255 ticks, 264 s simulated in 939 s)
+kangaroo_left4 at 0.50 rad/s: 2914 ticks, error median 5.77 deg while moving, 0.82 deg at rest
+written: docs/kangaroo/results/data/tracking/kangaroo_left4_0.50.json (2914 ticks, 147 s simulated in 524 s)
+kangaroo_left4 at 1.00 rad/s: 1762 ticks, error median 10.92 deg while moving, 0.89 deg at rest
+written: docs/kangaroo/results/data/tracking/kangaroo_left4_1.00.json (1762 ticks, 89 s simulated in 306 s)
+kangaroo_left4 pair 0: from 154 deg to 0.7 deg (free), 5 deg after 8.2 s, path 1.37, 12.4 s; exact rule 0.1 deg | 1 done, 100% reached, 156 s
+kangaroo_left4 pair 1: from 50 deg to 0.5 deg (free), 5 deg after 3.0 s, path 1.24, 5.8 s; exact rule 0.3 deg | 2 done, 100% reached, 233 s
+kangaroo_left4 pair 2: from 99 deg to 6.2 deg (at a limit), 5 deg after nan s, path 1.31, 10.9 s; exact rule 7.0 deg | 3 done, 67% reached, 382 s
+kangaroo_left4 pair 3: from 136 deg to 0.6 deg (at a limit), 5 deg after 13.8 s, path 1.35, 20.0 s; exact rule 1.1 deg | 4 done, 75% reached, 671 s
+kangaroo_left4 pair 4: from 81 deg to 1.3 deg (at a limit), 5 deg after 5.5 s, path 1.31, 12.8 s; exact rule 1.5 deg | 5 done, 80% reached, 864 s
+kangaroo_left4 pair 5: from 174 deg to 73.2 deg (at a limit), 5 deg after nan s, path 0.83, 18.8 s; exact rule 69.5 deg | 6 done, 67% reached, 1146 s
+kangaroo_left4 pair 6: from 98 deg to 1.2 deg (free), 5 deg after 7.4 s, path 1.65, 10.7 s; exact rule 0.3 deg | 7 done, 71% reached, 1338 s
+kangaroo_left4 pair 7: from 163 deg to 110.8 deg (at a limit), 5 deg after nan s, path 1.12, 20.0 s; exact rule 108.7 deg | 8 done, 62% reached, 1654 s
+kangaroo_left4 pair 8: from 132 deg to 1.4 deg (free), 5 deg after 14.9 s, path 1.28, 20.0 s; exact rule 0.8 deg | 9 done, 67% reached, 1969 s
+kangaroo_left4 pair 9: from 85 deg to 1.1 deg (free), 5 deg after 13.1 s, path 1.36, 17.7 s; exact rule 0.3 deg | 10 done, 70% reached, 2258 s
+kangaroo_left4 pair 10: from 54 deg to 0.9 deg (free), 5 deg after 4.0 s, path 1.23, 6.5 s; exact rule 0.1 deg | 11 done, 73% reached, 2370 s
+kangaroo_left4 pair 11: from 134 deg to 1.4 deg (free), 5 deg after 9.6 s, path 1.46, 14.7 s; exact rule 0.3 deg | 12 done, 75% reached, 2604 s
+kangaroo_left4 pair 12: from 148 deg to 2.0 deg (free), 5 deg after 8.6 s, path 1.20, 18.8 s; exact rule 0.6 deg | 13 done, 77% reached, 2909 s
+kangaroo_left4 pair 13: from 140 deg to 1.7 deg (at a limit), 5 deg after 11.7 s, path 1.33, 17.4 s; exact rule 1.0 deg | 14 done, 79% reached, 3195 s
+kangaroo_left4 pair 14: from 79 deg to 1.5 deg (free), 5 deg after 4.0 s, path 1.10, 8.8 s; exact rule 0.6 deg | 15 done, 80% reached, 3393 s
+kangaroo_left4 pair 15: from 177 deg to 63.5 deg (at a limit), 5 deg after nan s, path 1.33, 20.0 s; exact rule 64.4 deg | 16 done, 75% reached, 3729 s
+kangaroo_left4 pair 16: from 110 deg to 0.7 deg (at a limit), 5 deg after 6.4 s, path 1.22, 9.5 s; exact rule 0.2 deg | 17 done, 76% reached, 3864 s
+kangaroo_left4 pair 17: from 93 deg to 2.2 deg (free), 5 deg after 5.0 s, path 1.09, 8.4 s; exact rule 0.2 deg | 18 done, 78% reached, 4010 s
+kangaroo_left4 pair 18: from 98 deg to 0.6 deg (free), 5 deg after 7.7 s, path 1.23, 10.7 s; exact rule 0.4 deg | 19 done, 79% reached, 4189 s
+kangaroo_left4 pair 19: from 167 deg to 57.5 deg (at a limit), 5 deg after nan s, path 1.01, 11.0 s; exact rule 57.3 deg | 20 done, 75% reached, 4365 s
+kangaroo_left4 pair 20: from 126 deg to 59.8 deg (at a limit), 5 deg after nan s, path 0.81, 14.5 s; exact rule 58.7 deg | 21 done, 71% reached, 4555 s
+kangaroo_left4 pair 21: from 158 deg to 1.5 deg (free), 5 deg after 14.4 s, path 1.36, 17.9 s; exact rule 0.3 deg | 22 done, 73% reached, 4822 s
+kangaroo_left4 pair 22: from 69 deg to 0.7 deg (free), 5 deg after 11.5 s, path 1.34, 15.3 s; exact rule 0.7 deg | 23 done, 74% reached, 5024 s
+kangaroo_left4 pair 23: from 88 deg to 1.7 deg (free), 5 deg after 4.2 s, path 1.23, 15.2 s; exact rule 1.0 deg | 24 done, 75% reached, 5270 s
+kangaroo_left4 pair 24: from 135 deg to 0.6 deg (free), 5 deg after 7.8 s, path 1.20, 13.9 s; exact rule 0.2 deg | 25 done, 76% reached, 5511 s
+kangaroo_left4 pair 25: from 27 deg to 0.6 deg (free), 5 deg after 1.8 s, path 1.35, 5.2 s; exact rule 0.1 deg | 26 done, 77% reached, 5612 s
+kangaroo_left4 pair 26: from 120 deg to 1.4 deg (free), 5 deg after 6.0 s, path 1.36, 12.8 s; exact rule 0.6 deg | 27 done, 78% reached, 5765 s
+kangaroo_left4 pair 27: from 120 deg to 1.3 deg (at a limit), 5 deg after 7.2 s, path 1.34, 10.4 s; exact rule 0.4 deg | 28 done, 79% reached, 5924 s
+kangaroo_left4 pair 28: from 165 deg to 4.6 deg (at a limit), 5 deg after 19.8 s, path 1.21, 20.0 s; exact rule 1.5 deg | 29 done, 79% reached, 6209 s
+kangaroo_left4 pair 29: from 175 deg to 16.4 deg (at a limit), 5 deg after nan s, path 1.13, 17.2 s; exact rule 14.6 deg | 30 done, 77% reached, 6459 s
+kangaroo_left4: 22640 neurons, 0.08 of real time, 30 trials (0 not run)
+reached 77% (exact rule 77%; of those the exact rule reaches: 100%); final error of reached 1.29 deg; 5 deg after 7.7 s; path 1.31 x shortest
+missed 7, of which 7 with a joint at a limit; 87% of trials settled, median duration 14.2 s
+written: docs/kangaroo/results/data/reach/light_ring_left.json
+
+real	221m15.016s
+user	0m0.836s
+sys	0m0.180s
+exit 0

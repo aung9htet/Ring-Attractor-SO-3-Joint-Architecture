@@ -4,6 +4,12 @@
     docker/run.bash sim -- 'python3 -B scripts/ik_simulator.py --chain tiago7'
     then open http://localhost:8765/
 
+With the Kangaroo in MuJoCo as the robot (see README 11.6):
+
+    docker/run.bash kangaroo up ik-kangaroo
+    docker/run.bash kangaroo exec ik-kangaroo -- 'python3 -B scripts/ik_simulator.py --chain kangaroo_left4 --kangaroo'
+    docker/run.bash kangaroo down ik-kangaroo
+
 With Gazebo as the robot (the TIAGo in an empty world; --gpu for the camera picture):
 
     docker/run.bash gazebo up ik-gazebo --gpu
@@ -12,7 +18,7 @@ With Gazebo as the robot (the TIAGo in an empty world; --gpu for the camera pict
 
 The page shows the arm with the goal at its hand (drag a ring of the goal to turn it), a choice of
 methods (the ring IK; the exact cascade; damped least squares, Jacobian transpose and cyclic
-coordinate descent as standard methods), the robot (light robot or Gazebo), the distance from the
+coordinate descent as standard methods), the robot (light robot, Gazebo or the Kangaroo), the distance from the
 goal for the last runs side by side, every joint's share, and the spikes of all rings.
 
 ``--stub`` replaces the spiking network by the exact rule, to try the page where NEST is not
@@ -25,7 +31,7 @@ import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
-from ring_so3.chains import MODEL_NAMES  # noqa: E402
+from ring_so3.chains import KANGAROO_MODELS, MODEL_NAMES  # noqa: E402
 from ring_so3.design import Design  # noqa: E402
 from ring_so3.ik.design import IkDesign  # noqa: E402
 from ring_so3.sim.ik_server import METHODS, IkSimulator  # noqa: E402
@@ -34,10 +40,11 @@ from ring_so3.sim.server import SimServer, SimState, StubIkNetwork  # noqa: E402
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--chain", default="tiago7", choices=MODEL_NAMES)
+    parser.add_argument("--chain", default="tiago7", choices=MODEL_NAMES + KANGAROO_MODELS)
     parser.add_argument("--method", default="ring", choices=METHODS)
     parser.add_argument("--gazebo", action="store_true", help="a Gazebo with the TIAGo runs beside this process: offer it as the robot")
-    parser.add_argument("--robot", default=None, choices=("light", "gazebo"), help="default: gazebo with --gazebo, else light")
+    parser.add_argument("--kangaroo", action="store_true", help="the Kangaroo in MuJoCo runs beside this process (kangaroo_* chains): offer it as the robot")
+    parser.add_argument("--robot", default=None, choices=("light", "gazebo", "kangaroo"), help="default: the robot started beside, else light")
     parser.add_argument("--port", type=int, default=int(os.environ.get("SIM_PORT", "8765")))
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--threads", type=int, default=8)
@@ -68,8 +75,22 @@ def main(argv=None):
         make_robot = lambda name, chain: GazeboRobot(chain, link)  # noqa: E731
         robots = ("light", "gazebo")
         state.image = link.jpeg
+    links = {}
+    if args.kangaroo:
+        from ring_so3.kangaroo.link import Ros2Link
+        from ring_so3.robots import KangarooRobot
+
+        def link_for(chain):                      # one link per side, opened when first needed
+            side = "left" if "left" in chain.name else "right"
+            if side not in links:
+                links[side] = Ros2Link(side)
+            return links[side]
+
+        previous = make_robot
+        make_robot = lambda name, chain: KangarooRobot(chain, link_for(chain)) if name == "kangaroo" else previous(name, chain)  # noqa: E731
+        robots += ("kangaroo",)
     chain = args.chain
-    robot = args.robot or ("gazebo" if args.gazebo and chain.startswith("tiago") else "light")
+    robot = args.robot or ("kangaroo" if args.kangaroo and chain.startswith("kangaroo_") else "gazebo" if args.gazebo and chain.startswith("tiago") else "light")
     server = SimServer(state, args.host, args.port)
     server.start()
     simulator = IkSimulator(make_network, chain, state, make_robot=make_robot, robots=robots, robot=robot, method=args.method,
@@ -80,7 +101,11 @@ def main(argv=None):
     except KeyboardInterrupt:
         pass
     finally:
-        server.stop()
+        for close in [server.stop] + [link.close for link in links.values()]:
+            try:
+                close()
+            except Exception as error:            # report it, and still close the rest
+                print("closing failed: %r" % (error,), file=sys.stderr, flush=True)
     return 0
 
 

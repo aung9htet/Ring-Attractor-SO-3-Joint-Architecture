@@ -8,7 +8,7 @@ Served by the HTTP server of :mod:`ring_so3.sim.server` with the page of :mod:`r
   :mod:`ring_so3.standard.ik`.  With any method but the two ring ones the network still runs and
   shows its rings, but the joints follow the method, which reads the exact joint angles.
 * **Robots**: ``light`` (no dynamics), and ``gazebo`` when the simulator was started beside a
-  running Gazebo (the TIAGo chains only).
+  running Gazebo (the TIAGo chains only), ``kangaroo`` beside the MuJoCo Kangaroo (its chains only).
 * **Runs**: a run starts when a goal is given (random goal, a drag that is let go, or "same
   goal, other method").  Its distance from the goal over time is kept, so that methods can be
   compared on the same start pose and goal.
@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
-from ..chains import CHAINS, MODEL_NAMES, get_chain
+from ..chains import CHAINS, KANGAROO_MODELS, MODEL_NAMES, get_chain
 from ..ik import rules
 from ..ik.session import IkSession
 from ..kinematics import Chain, lift_pitch_yaw, nearest_rotation, orientation_error_deg, rotation_angle
@@ -40,6 +40,7 @@ METHOD_LABELS = {"ring": "Ring IK (spiking network, cascade)", "ring_all": "Ring
                  "cascade": "Exact cascade (no neurons)", "dls": "Damped least squares", "transpose": "Jacobian transpose",
                  "ccd": "Cyclic coordinate descent"}
 COMMANDS = ("goal", "random_goal", "method", "robot", "replay", "target", "stop", "speed", "chain", "quit")
+ROBOT_CHAINS = {"gazebo": "tiago", "kangaroo": "kangaroo_"}     # robot -> prefix of the chains it can move
 KEPT_RUNS = 6
 REACHED_DEG = 5.0
 
@@ -69,7 +70,7 @@ class IkSimulator:
     # -- building ------------------------------------------------------------
     def load(self, chain_name: str, keep_pose: Optional[np.ndarray] = None) -> None:
         self.chain = get_chain(chain_name)
-        if self.robot_name == "gazebo" and not self.chain.name.startswith("tiago"):
+        if not self._usable(self.robot_name):
             self.robot_name = "light"
         started = time.time()
         self.network = self.make_network(self.chain, cascade=self.method != "ring_all")
@@ -85,8 +86,11 @@ class IkSimulator:
         self._previous_rotation = self.chain.rotation(self.session.q)
         self.state.publish("config", self.config())
 
+    def _usable(self, robot: str) -> bool:
+        return robot == "light" or self.chain.name.startswith(ROBOT_CHAINS.get(robot, "\0"))
+
     def _robot(self, name: str, q: Optional[np.ndarray] = None) -> Any:
-        if name == "gazebo" and self.make_robot is not None:
+        if name != "light" and self.make_robot is not None:
             return self.make_robot(name, self.chain)
         return LightRobot(self.chain, q if q is not None else start_pose(self.chain))
 
@@ -96,7 +100,7 @@ class IkSimulator:
 
     def config(self) -> Dict[str, Any]:
         return {
-            "chain": self.chain.name, "description": self.chain.description, "chains": MODEL_NAMES,
+            "chain": self.chain.name, "description": self.chain.description, "chains": MODEL_NAMES + KANGAROO_MODELS,
             "joints": [{"name": j.name, "lower": j.lower, "upper": j.upper, "circular": j.circular, "axis": j.axis} for j in self.chain.joints],
             "neurons": int(self.network.neuron_count()), "ring_size": int(self.session.ring_size),
             "tick_ms": float(self.network.options.tick_ms), "build_s": round(self.build_s, 2),
@@ -104,7 +108,7 @@ class IkSimulator:
             "stub": isinstance(self.network, StubNetwork), "ik": True,
             "caps": [round(float(c), 4) for c in rules.share_caps(self.chain, self.session.design, self.session.ring_size)],
             "methods": [{"name": m, "label": METHOD_LABELS[m]} for m in METHODS], "robots": list(self.robots),
-            "gazebo_chains": [name for name in MODEL_NAMES if name.startswith("tiago")],
+            "robot_chains": {r: [n for n in MODEL_NAMES + KANGAROO_MODELS if n.startswith(ROBOT_CHAINS[r])] for r in self.robots if r in ROBOT_CHAINS},
         }
 
     # -- commands ------------------------------------------------------------
@@ -124,7 +128,7 @@ class IkSimulator:
         elif name == "method" and command.get("method") in METHODS:
             self._set_method(command["method"])
         elif name == "robot" and command.get("robot") in self.robots:
-            if command["robot"] != self.robot_name and (command["robot"] != "gazebo" or self.chain.name.startswith("tiago")):
+            if command["robot"] != self.robot_name and self._usable(command["robot"]):
                 self.robot_name = command["robot"]
                 self._end_run()
                 self.session.robot = self._robot(self.robot_name, self.session.q.copy())
@@ -254,10 +258,10 @@ class IkSimulator:
         shares = result.shares if session.method is None or session.method_shares is None else session.method_shares
         robot = session.robot
         gazebo = None
-        if self.robot_name == "gazebo":
+        if self.robot_name != "light":
             link = robot.link
-            gazebo = {"sim_time": round(float(robot.sim_time_s), 3), "frames": int(link.frames()), "lag": r3(robot.lag),
-                      "overshoot_ms": round(1000.0 * float(link.overshoot_s), 2)}
+            gazebo = {"sim_time": round(float(robot.sim_time_s), 3), "frames": int(link.frames()), "lag": r3(np.ravel(robot.lag)),
+                      "overshoot_ms": round(1000.0 * float(getattr(link, "overshoot_s", 0.0)), 2)}
         return {
             "t": round(tick.t_ms / 1000.0, 3), "chain": chain.name, "mode": self.mode, "method": self.method, "robot": self.robot_name,
             "speed": self.speed, "q": r3(q), "target": r3(self.manual_target if self.mode == "manual" else robot.target),

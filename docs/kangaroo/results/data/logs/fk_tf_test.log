@@ -1,0 +1,12 @@
+# 2026-10-27T08:51:19Z commit 9e3ed24-dirty; docker/run.bash kangaroo exec fktf -- 'timeout 180 python3 -B -m unittest -v tests.test_kangaroo_sim; echo exit=$?'
+test_close_unpauses (tests.test_kangaroo_sim.KangarooSimTests) ... ok
+test_follow_advances_the_clock_by_one_tick (tests.test_kangaroo_sim.KangarooSimTests) ... ok
+test_tool_frame_matches_the_robot_tf (tests.test_kangaroo_sim.KangarooSimTests) ... tool translation difference to TF: 7.584e-06 m
+tool translation difference to TF: 7.054e-06 m
+tool translation difference to TF: 6.148e-06 m
+ok
+test_no_sim_fails_fast (tests.test_kangaroo_sim.NoSimTests) ... skipped 'runs only with rclpy and no simulation (kangaroo run)'
+----------------------------------------------------------------------
+Ran 4 tests in 21.686s
+OK (skipped=1)
+exit=0

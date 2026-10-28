@@ -1,0 +1,1667 @@
+diff --git a/README.md b/README.md
+index c152b92..806629b 100644
+--- a/README.md
++++ b/README.md
+@@ -451,3 +451,30 @@ docker/run.bash nest --out /tmp/ring-so3 -- 'python3 -B scripts/ik_example.py'
+ `scripts/ik_example.py` builds the network for a 3-joint arm, gives the hand one goal and
+ prints the distance from it every half second; it is the shortest way into the code.
+ 
++### 11.6 With the Kangaroo in MuJoCo as the robot
++
++Same three steps as 11.2, with the `kangaroo` container. Each in a terminal at the root of this repo.
++
++**1. Start the Kangaroo** (MuJoCo with its own window; it returns when the sim is ready).
++
++```bash
++docker/run.bash kangaroo up ik-kangaroo
++```
++
++**2. Start the simulator beside it.** When it prints "IK simulator ready", open
++<http://localhost:8765/>; the robot selector already says "Kangaroo in MuJoCo". The chain
++selector switches arms (`kangaroo_left4`, `kangaroo_right4`).
++
++```bash
++docker/run.bash kangaroo exec ik-kangaroo -- 'python3 -B scripts/ik_simulator.py --chain kangaroo_left4 --kangaroo'
++```
++
++**3. Stop.** Ctrl-C in the terminal of step 2, then:
++
++```bash
++docker/run.bash kangaroo down ik-kangaroo
++```
++
++What to expect: MuJoCo's own window shows the robot (the page has no picture, only the
++sim-time and lag line); the simulation advances 50 ms per tick of the network.
++
+diff --git a/docker/image.env b/docker/image.env
+index 0487084..fcf1816 100644
+--- a/docker/image.env
++++ b/docker/image.env
+@@ -1,3 +1,5 @@
+ # The image of the SO-2 repo (ROS Noetic, Gazebo 11, NEST HEAD@41892a5, Python 3.8, NumPy, SciPy, Matplotlib, ffmpeg).
+ # Original tag: aung9htet/ubuntu-20.04:tiago_ring_forward_2
+ MODEL_IMAGE=aung9htet/ubuntu-20.04@sha256:903cecc6936d68aa6d457d10399e3f8210d4271dcffc6f3d28a739d5b0abba47
++# The Kangaroo (MuJoCo, ROS 2 Humble, NEST) image: built locally from docker/kangaroo/ by "docker/run.bash kangaroo up".
++KANGAROO_IMAGE=ring-so3-kangaroo:humble
+diff --git a/docker/kangaroo/Dockerfile b/docker/kangaroo/Dockerfile
+new file mode 100644
+index 0000000..ab155f7
+--- /dev/null
++++ b/docker/kangaroo/Dockerfile
+@@ -0,0 +1,29 @@
++# ROS 2 Humble + MuJoCo + PAL Kangaroo simulation, all from ROS apt binaries.
++# Copied from the SO-2 repo (docker/ros2_kangaroo/Dockerfile); here the launch file is copied last so editing it keeps the NEST layer.
++# Base pinned by digest (osrf/ros:humble-desktop, built 2026-09-10).
++FROM osrf/ros@sha256:fb07245b32187d74350be25323d8ad2f8ca5c25c325759911a1eff2267a49c1e
++
++# kangaroo-simulation pulls kangaroo_mujoco, kangaroo_robot, pal_sea_arm, mujoco_ros2_control, mujoco_vendor (MuJoCo).
++# kangaroo-moveit-config: PAL's launch resolves it even with moveit:=False but does not declare it.
++RUN apt-get update \
++    && apt-get install -y --no-install-recommends \
++       ros-humble-kangaroo-simulation ros-humble-kangaroo-moveit-config \
++    && rm -rf /var/lib/apt/lists/*
++
++# Ring network: NEST pinned to HEAD@41892a5 (docker/image.env), built from source; matplotlib for the figures.
++RUN apt-get update && apt-get install -y --no-install-recommends \
++      build-essential cmake cython3 libgsl-dev libltdl-dev libboost-dev libreadline-dev \
++      python3-dev python3-numpy python3-scipy python3-pandas python3-colorcet python3-matplotlib git \
++    && rm -rf /var/lib/apt/lists/*
++RUN git clone https://github.com/nest/nest-simulator.git /tmp/nest-src \
++    && git -C /tmp/nest-src checkout --detach 41892a50f95ddf50966e2371151b207d098e814a \
++    && cmake -S /tmp/nest-src -B /tmp/nest-build -DCMAKE_INSTALL_PREFIX=/usr/local/nest \
++    && cmake --build /tmp/nest-build -j"$(nproc)" && cmake --install /tmp/nest-build \
++    && rm -rf /tmp/nest-build /tmp/nest-src
++ENV PYTHONPATH=/usr/local/nest/lib/python3.10/site-packages
++
++# Every interactive shell (including `docker exec`) gets ROS sourced.
++RUN echo 'source /opt/ros/humble/setup.bash' >> /etc/bash.bashrc
++ENV NVIDIA_DRIVER_CAPABILITIES=all
++
++COPY kangaroo_sim.launch.py /opt/kangaroo_sim.launch.py
+diff --git a/docker/kangaroo/kangaroo_sim.launch.py b/docker/kangaroo/kangaroo_sim.launch.py
+new file mode 100644
+index 0000000..ae7fe56
+--- /dev/null
++++ b/docker/kangaroo/kangaroo_sim.launch.py
+@@ -0,0 +1,33 @@
++"""PAL's kangaroo_mujoco launch, unchanged, plus the one remap it needs on ROS 2 Humble.
++
++On Humble, ros2_control_node reads ~/robot_description, but PAL's launch publishes
++/robot_description without remapping it, so the controller manager waits forever.
++Upstream's own demos add this remap on Humble only
++(mujoco_ros2_control_demos/launch/01_basic_robot.launch.py).
++Defaults: PAL's pregenerated 4-DoF model (floating base, no end-effector), MoveIt off.
++Also starts PAL's own left and right arm trajectory controllers, unchanged (SO-2 repo's docs/kangaroo/DECISIONS.md D7).
++"""
++from launch import LaunchDescription
++from launch.actions import DeclareLaunchArgument, GroupAction, IncludeLaunchDescription
++from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
++from launch_ros.actions import SetRemap
++from launch_ros.substitutions import FindPackageShare
++
++
++def pal_launch(package, name):
++    return PathJoinSubstitution([FindPackageShare(package), 'launch', name])
++
++
++def generate_launch_description():
++    # Scoped per side so the two includes' `side` arguments do not overwrite each other.
++    arm_controllers = [GroupAction([
++        IncludeLaunchDescription(pal_launch('kangaroo_controller_configuration', 'arm_controller.launch.py'),
++                                 launch_arguments={'side': side, 'arm_type': LaunchConfiguration('arm_type')}.items())])
++        for side in ('left', 'right')]
++    return LaunchDescription([
++        DeclareLaunchArgument('arm_type', default_value='4dof'),
++        DeclareLaunchArgument('moveit', default_value='False'),
++        SetRemap(src='~/robot_description', dst='/robot_description'),
++        IncludeLaunchDescription(pal_launch('kangaroo_mujoco', 'kangaroo_mujoco.launch.py')),
++        *arm_controllers,
++    ])
+diff --git a/docker/run.bash b/docker/run.bash
+index 5d22d08..769f1ea 100755
+--- a/docker/run.bash
++++ b/docker/run.bash
+@@ -6,6 +6,10 @@
+ #   docker/run.bash gazebo up NAME [--gpu] [--port 8765] [--out DIR]   start Gazebo with the TIAGo in an empty world, in the background
+ #   docker/run.bash gazebo exec NAME -- COMMAND                 run a command beside that Gazebo (ROS, NEST and this repo set up)
+ #   docker/run.bash gazebo down NAME                            stop it
++#   docker/run.bash kangaroo up NAME [--port 8765] [--out DIR]  start PAL's Kangaroo in MuJoCo (needs a desktop session), in the background
++#   docker/run.bash kangaroo exec NAME -- COMMAND               run a command beside that simulation (ROS 2, NEST and this repo set up)
++#   docker/run.bash kangaroo down NAME                          stop it
++#   docker/run.bash kangaroo run [--out DIR] -- COMMAND         one-shot in the Kangaroo image, no simulation, no network
+ #
+ # COMMAND is one shell string.  It runs in /work (this repo, mounted read-write: calibration
+ # writes artifacts/, reports write docs/results/) with NEST and this package on the Python path.
+@@ -21,12 +25,13 @@ set -euo pipefail
+ repo_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
+ source "$repo_dir/docker/image.env"
+ setup='source /opt/ros/noetic/setup.bash; source /tiago_public_ws/devel/setup.bash; source /usr/local/nest/bin/nest_vars.sh; export PYTHONPATH=/work:${PYTHONPATH:-}; cd /work'
++setup_kangaroo='source /opt/ros/humble/setup.bash; source /usr/local/nest/bin/nest_vars.sh; export PYTHONPATH=/work:${PYTHONPATH:-}; cd /work'
+ banner='^\s*$|-- N E S T --|Copyright \(C\) 2004|Version: HEAD|Built: |This program is provided|NO WARRANTY|Problems or suggestions|Visit https://www.nest|Type .nest.help'
+ die() { echo "Error: $*" >&2; exit 1; }
+-usage() { sed -n '2,19p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
++usage() { sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
+ 
+ mode=${1:-}; shift || true
+-case "$mode" in nest|sim|gazebo) ;; -h|--help|'') usage; exit 0 ;; *) die "unknown mode $mode (nest, sim, gazebo)" ;; esac
++case "$mode" in nest|sim|gazebo|kangaroo) ;; -h|--help|'') usage; exit 0 ;; *) die "unknown mode $mode (nest, sim, gazebo, kangaroo)" ;; esac
+ if [[ $mode == gazebo ]]; then
+     action=${1:-}; name=${2:-}; shift 2 || die 'gazebo needs: up NAME, exec NAME -- COMMAND, or down NAME'
+     case "$action" in
+@@ -92,6 +97,79 @@ PY
+     esac
+     exit 0
+ fi
++if [[ $mode == kangaroo ]]; then
++    build() { [[ -n $(docker images -q "$KANGAROO_IMAGE") ]] || docker build -t "$KANGAROO_IMAGE" "$repo_dir/docker/kangaroo"; }
++    env_args=(--user "$(id -u):$(id -g)" -e HOME=/tmp -e USER=model -e LOGNAME=model -e PYTHONDONTWRITEBYTECODE=1 -e MPLBACKEND=Agg -e MPLCONFIGDIR=/tmp/mpl)
++    action=${1:-}; shift || die 'kangaroo needs: up NAME, exec NAME -- COMMAND, down NAME, or run -- COMMAND'
++    if [[ $action == run ]]; then
++        build; out=
++        while (($#)); do
++            case "$1" in
++                --out) out=$2; shift 2 ;;
++                --) shift; break ;;
++                *) die "unknown option $1 (put -- before the command)" ;;
++            esac
++        done
++        (($# == 1)) || die 'give one command string after --'
++        args=(--rm -i --init --shm-size 1g --network none "${env_args[@]}" -v "$repo_dir:/work")
++        [[ -z $out ]] || { mkdir -p "$out"; args+=(-v "$(cd "$out" && pwd -P):/out"); }
++        docker run "${args[@]}" --entrypoint bash "$KANGAROO_IMAGE" -c "$setup_kangaroo && $1" 2>&1 | grep --line-buffered -v -E "$banner" || true
++        exit 0
++    fi
++    name=${1:-}; shift || die 'kangaroo needs: up NAME, exec NAME -- COMMAND, down NAME, or run -- COMMAND'
++    case "$action" in
++    up)
++        out=; port=8765
++        while (($#)); do
++            case "$1" in
++                --port) port=$2; shift 2 ;;
++                --out) out=$2; shift 2 ;;
++                *) die "unknown option $1" ;;
++            esac
++        done
++        build
++        [[ -n ${DISPLAY:-} ]] || die 'kangaroo up needs a desktop session (DISPLAY): MuJoCo opens a window'
++        [[ -z $(docker ps -aq -f "name=^${name}\$") ]] || die "a container named $name exists already: stop it with \"docker/run.bash kangaroo down $name\", or pick another name"
++        if (exec 3<>"/dev/tcp/127.0.0.1/$port") 2>/dev/null; then
++            die "port $port is in use on this machine (another simulator?): add --port with a free one, e.g. --port $((port + 1))"
++        fi
++        # the container runs detached and needs this file for as long as it lives, so it stays in /tmp
++        xauth_file=$(mktemp /tmp/ring-so3-xauth.XXXXXX)
++        xauth nlist "$DISPLAY" | sed 's/^..../ffff/' | xauth -f "$xauth_file" nmerge -
++        chmod 644 "$xauth_file"
++        args=(-d --init --name "$name" --shm-size 1g "${env_args[@]}" -e "SIM_PORT=$port" -e ROS_LOCALHOST_ONLY=1
++              --gpus all -e NVIDIA_DRIVER_CAPABILITIES=all -e __NV_PRIME_RENDER_OFFLOAD=1 -e __GLX_VENDOR_LIBRARY_NAME=nvidia
++              -e "DISPLAY=$DISPLAY" -e XAUTHORITY=/tmp/.xauth
++              -v "$xauth_file:/tmp/.xauth:ro" -v /tmp/.X11-unix:/tmp/.X11-unix:ro
++              -p "127.0.0.1:$port:$port" -v "$repo_dir:/work")
++        [[ -z $out ]] || { mkdir -p "$out"; args+=(-v "$(cd "$out" && pwd -P):/out"); }
++        docker run "${args[@]}" --entrypoint bash "$KANGAROO_IMAGE" -c 'source /opt/ros/humble/setup.bash; exec ros2 launch /opt/kangaroo_sim.launch.py' >/dev/null
++        started=$SECONDS
++        until [[ $(docker exec "$name" bash -c 'source /opt/ros/humble/setup.bash; ros2 control list_controllers 2>/dev/null' | sed 's/\x1b\[[0-9;]*m//g' | grep -cE '^arm_(left|right)_controller .* active') == 2 ]]; do
++            if [[ -z $(docker ps -q -f "name=^${name}\$") ]]; then
++                docker logs --tail 30 "$name" >&2; docker rm -f "$name" >/dev/null
++                die 'the Kangaroo container exited during start-up'
++            elif ((SECONDS - started > 300)); then
++                docker logs --tail 30 "$name" >&2; docker rm -f "$name" >/dev/null
++                die 'the arm controllers did not come up in 300 s'
++            fi
++            sleep 3
++        done
++        echo "Kangaroo ready after $((SECONDS - started)) s"
++        echo "A simulator started in this container is served on http://localhost:$port/ . Stop everything with: docker/run.bash kangaroo down $name"
++        ;;
++    exec)
++        [[ ${1:-} == -- ]] && shift
++        (($# == 1)) || die 'give one command string after --'
++        [[ -n $(docker ps -q -f "name=^${name}\$") ]] || die "no running container named $name: start it with \"docker/run.bash kangaroo up $name\""
++        tty=(); [[ -t 0 ]] && tty=(-t)
++        docker exec -i "${tty[@]}" "$name" bash -c "$setup_kangaroo && $1" 2>&1 | grep --line-buffered -v -E "$banner" || true
++        ;;
++    down) docker rm -f "$name" >/dev/null && echo "stopped $name" ;;
++    *) die "unknown kangaroo action $action (up, exec, down, run)" ;;
++    esac
++    exit 0
++fi
+ out=; so2=; port=8765
+ while (($#)); do
+     case "$1" in
+diff --git a/ring_so3/chains.py b/ring_so3/chains.py
+index 9a8a407..42df5bb 100644
+--- a/ring_so3/chains.py
++++ b/ring_so3/chains.py
+@@ -10,6 +10,9 @@
+   joint turns about its local z and the link rotations are multiples of 90 deg.
+   ``tiago7`` ends at ``arm_tool_link``.  ``tests/test_kinematics.py`` compares
+   this table with the URDF itself when the robot description is installed.
++* ``kangaroo_left4``, ``kangaroo_right4``: the four joints of PAL's Kangaroo arms
++  (``arm_<side>_1_joint`` .. ``arm_<side>_4_joint``) in the frame of ``torso_link``,
++  ending at ``arm_<side>_tool_link``; see :func:`kangaroo_chain`.
+ """
+ 
+ from __future__ import annotations
+@@ -38,11 +41,36 @@ TIAGO_TOOL = ("arm_tool_joint", (0.0, 0.0, 0.046), (H, -H, float(np.pi)))
+ TIAGO_BASE_LINK = "torso_lift_link"
+ TIAGO_TOOL_LINK = "arm_tool_link"
+ 
+-
+-def _matrix_tuple(matrix: np.ndarray) -> Tuple[Tuple[float, ...], ...]:
++_KANGAROO_JOINTS = (   # name, xyz, rpy, axis sign, lower, upper, velocity limit (the URDF of the robot)
++    ("arm_%s_1_joint", (0.0, 0.0, 0.0), (3.1416, 0.0, 3.1416), -1, -2.6179938779914944, 2.6179938779914944, 1.95),
++    ("arm_%s_2_joint", (0.03711, 0.02, -0.17011), (0.0, 1.5708, 0.0), 1, -1.1344640137963142, None, 1.95),
++    ("arm_%s_3_joint", (0.15989, -0.02, -0.03711), (0.0, -1.5708, 0.0), -1, -2.6179938779914944, 2.6179938779914944, 2.35),
++    ("arm_%s_4_joint", (-0.03711, -0.02, -0.17011), (3.14159, 1.5708, 0.0), 1, -1.1345, 2.4435, 2.35),
++)
++#: upper limit of arm_<side>_2_joint measured by SO-2 (narrower than the URDF's 2.443460952792061):
++#: ../Ring-Attractor-SO-2-Joint-Architecture/src/kangaroo_ring_controller/results/joint_limits/
++#: left_j1_20261013_180318 (left), right_j1_20261013_125903 (right)
++_KANGAROO_J2_UPPER = {"left": 1.4229904547193268, "right": 1.4622630704048099}
++#: per side, rows ``(name, xyz, rpy, axis_sign, lower, upper, velocity)`` of joints 1 .. 4
++KANGAROO_ARM = {
++    side: tuple((n % side, xyz, rpy, sign, lo, _KANGAROO_J2_UPPER[side] if up is None else up, v)
++                for n, xyz, rpy, sign, lo, up, v in _KANGAROO_JOINTS)
++    for side in ("left", "right")
++}
++#: arm_<side>_fixed_joint, torso_link -> arm_<side>_base_link: xyz, rpy
++KANGAROO_MOUNT = {
++    "left": ((0.0, 0.105954, 0.384396), (1.3963, 3.14159, 3.14159)),
++    "right": ((0.0, -0.105954, 0.384396), (1.3963, 3.14159, 0.0)),
++}
++KANGAROO_TOOL = ((0.35, -0.02, -0.0255), (0.0, 0.0, 0.0))     # arm_<side>_4_link -> arm_<side>_tool_link
++KANGAROO_BASE_LINK = "torso_link"
++KANGAROO_TOOL_LINK = "arm_%s_tool_link"
++
++
++def _matrix_tuple(matrix: np.ndarray, tol: float = 1e-12) -> Tuple[Tuple[float, ...], ...]:
+     # the link rotations are multiples of 90 deg: store exact 0 and +-1
+-    cleaned = np.where(np.abs(matrix) < 1e-12, 0.0, matrix)
+-    cleaned = np.where(np.abs(np.abs(cleaned) - 1.0) < 1e-12, np.sign(cleaned), cleaned)
++    cleaned = np.where(np.abs(matrix) < tol, 0.0, matrix)
++    cleaned = np.where(np.abs(np.abs(cleaned) - 1.0) < tol, np.sign(cleaned), cleaned)
+     return tuple(tuple(float(v) for v in row) for row in cleaned)
+ 
+ 
+@@ -72,12 +100,41 @@ def tiago_chain(n: int = 7) -> Chain:
+     return Chain("tiago%d" % n, joints, description="TIAGo arm, arm_1 .. arm_%d" % n)
+ 
+ 
++def kangaroo_chain(side: str) -> Chain:
++    """The four joints of one Kangaroo arm, ``torso_link`` to ``arm_<side>_tool_link``.
++
++    ``Joint.axis`` is x, y or z, so the URDF axes -z of joints 1 and 3 are folded:
++    ``Rot(-z, q) = Rx(pi) Rz(q) Rx(pi)``.  Joint angles equal the robot's; links 2, 4 and the
++    tool frame equal the URDF's; links 1 and 3 are the URDF frames turned half a turn about
++    their x axis.
++    """
++
++    if side not in KANGAROO_ARM:
++        raise ValueError("side must be 'left' or 'right', got %r" % (side,))
++    flip, carry, joints = rpy_matrix(np.pi, 0.0, 0.0), np.eye(3), []
++    for k, (name, xyz, rpy, sign, lower, upper, velocity) in enumerate(KANGAROO_ARM[side]):
++        mount_xyz, mount_rpy = KANGAROO_MOUNT[side]
++        fixed = (rpy_matrix(*mount_rpy) if k == 0 else carry) @ rpy_matrix(*rpy)
++        offset = mount_xyz if k == 0 else carry @ np.array(xyz)
++        carry = flip if sign < 0 else np.eye(3)
++        # the URDF writes pi/2 and pi as 1.5708, 3.1416, 3.14159; composed, the rounding leaves residuals up to
++        # ~1.2e-5: snap entries within 2e-5 of 0, +-1 (<= 0.0012 deg) so the wiring gets no such tiny products
++        joints.append(Joint(name, "z", fixed=_matrix_tuple(fixed @ carry, 2e-5), offset=tuple(float(v) for v in offset),
++                            lower=lower, upper=upper, circular=False, max_velocity=velocity))
++    xyz, rpy = KANGAROO_TOOL
++    return Chain("kangaroo_%s4" % side, tuple(joints), tool_fixed=_matrix_tuple(carry @ rpy_matrix(*rpy), 2e-5),
++                 tool_offset=tuple(float(v) for v in carry @ np.array(xyz)),
++                 description="Kangaroo %s arm, arm_%s_1 .. arm_%s_4, ending at arm_%s_tool_link" % ((side,) * 4))
++
++
+ def _registry() -> Dict[str, Chain]:
+     chains: Dict[str, Chain] = {}
+     for n in range(1, len(GENERIC_AXES) + 1):
+         chains["generic%d" % n] = generic_chain(n)
+     for n in range(1, len(TIAGO_ARM) + 1):
+         chains["tiago%d" % n] = tiago_chain(n)
++    for side in KANGAROO_ARM:
++        chains["kangaroo_%s4" % side] = kangaroo_chain(side)
+     return chains
+ 
+ 
+@@ -85,6 +142,8 @@ CHAINS: Dict[str, Chain] = _registry()
+ #: the twelve models of the tests
+ MODEL_NAMES: List[str] = ["generic%d" % n for n in range(2, 8)] + ["tiago%d" % n for n in range(2, 8)]
+ 
++KANGAROO_MODELS: List[str] = ["kangaroo_left4", "kangaroo_right4"]
++
+ 
+ def get_chain(name: str) -> Chain:
+     try:
+@@ -93,5 +152,6 @@ def get_chain(name: str) -> Chain:
+         raise ValueError("unknown chain %r; known: %s" % (name, ", ".join(sorted(CHAINS))))
+ 
+ 
+-__all__ = ["CHAINS", "GENERIC_AXES", "MODEL_NAMES", "TIAGO_ARM", "TIAGO_BASE_LINK", "TIAGO_TOOL", "TIAGO_TOOL_LINK",
+-           "generic_chain", "get_chain", "tiago_chain"]
++__all__ = ["CHAINS", "GENERIC_AXES", "KANGAROO_ARM", "KANGAROO_BASE_LINK", "KANGAROO_MODELS", "KANGAROO_MOUNT",
++           "KANGAROO_TOOL", "KANGAROO_TOOL_LINK", "MODEL_NAMES", "TIAGO_ARM", "TIAGO_BASE_LINK", "TIAGO_TOOL",
++           "TIAGO_TOOL_LINK", "generic_chain", "get_chain", "kangaroo_chain", "tiago_chain"]
+diff --git a/ring_so3/kangaroo/__init__.py b/ring_so3/kangaroo/__init__.py
+new file mode 100644
+index 0000000..32621b5
+--- /dev/null
++++ b/ring_so3/kangaroo/__init__.py
+@@ -0,0 +1 @@
++"""PAL's Kangaroo in MuJoCo as the robot (ROS 2 Humble; only imported inside the container that runs the simulation)."""
+diff --git a/ring_so3/kangaroo/link.py b/ring_so3/kangaroo/link.py
+new file mode 100644
+index 0000000..7e9e885
+--- /dev/null
++++ b/ring_so3/kangaroo/link.py
+@@ -0,0 +1,228 @@
++"""The connection to a running MuJoCo with PAL's Kangaroo: joint states in, arm targets out, physics in lock step.
++
++Topics and messages taken from the SO-2 repo (``kangaroo_ring_controller/arm.py``: ``/joint_states``,
++``/arm_<side>_controller/joint_trajectory``, a one-point ``JointTrajectory`` stamped 0, so the controller starts
++it on receipt); lock step from ``mujoco_ros2_control`` (facts in ``docs/experiments/2026-10-26_kangaroo_plant_checks.md``):
++
++* physics stays paused.  :meth:`Ros2Link.step` calls ``step_simulation``, which returns when the steps are done
++  (100 steps = 0.05 s on ``/clock``), so there is no overshoot and no absolute schedule as for Gazebo;
++* nothing here waits on the node's clock: it is sim time, and ``/clock`` is not published while paused.  Waits
++  are on wall time, for messages, and every one is bounded (RuntimeError when it runs out);
++* ``/clock`` lags at rest: right after a pause the clock of the last 8-15 steps is still on its way, and the last
++  step of a ``step_simulation`` call is now and then not published (1 in about 2000 calls).  So sim time is counted:
++  from the clock of one single step at construction (taken once 50 ms passed without a clock after the pause), plus
++  the steps asked for (shared by the links of a process: one simulation), or ``/clock`` where that is ahead (someone
++  else ran the simulation);
++* ``/joint_states`` comes at 50 Hz, so after a tick the newest joint state can be up to 20 ms old:
++  :meth:`Ros2Link.step` waits for that newest one and records its age (``stale_s``, ``stale_max_s``); now and then
++  one is lost (as the last ``/clock``): then the newest there is stays and ``missed_states`` counts it;
++* subscriptions are served by an executor in a daemon thread; services are called with ``call_async`` and a wait
++  on the future, so two links (left and right) can live in one process;
++* Kangaroo stands on fixed feet: there is no base to put back and no camera.
++"""
++
++from __future__ import annotations
++
++import threading
++import time
++from typing import Dict, List, Optional, Sequence, Tuple
++
++ARM_JOINTS: Dict[str, Tuple[str, ...]] = {side: tuple("arm_%s_%d_joint" % (side, k) for k in range(1, 5))
++                                          for side in ("left", "right")}
++PAUSE_SERVICE = "/mujoco_ros2_control_node/set_pause"
++STEP_SERVICE = "/mujoco_ros2_control_node/step_simulation"
++JOINT_STATES_TOPIC = "/joint_states"
++PHYSICS_STEP_S = 0.0005
++JOINT_STATE_PERIOD_S = 0.02
++
++
++class Ros2Link:
++    PHYSICS_STEP_S = PHYSICS_STEP_S
++    _counted_s = 0.0                          # sim time counted from the steps the links of this process asked for
++
++    def __init__(self, side: str, node_name: str = "ring_ik", timeout_s: float = 30.0) -> None:
++        import rclpy
++        from mujoco_ros2_control_msgs.srv import SetPause, StepSimulation
++        from rclpy.executors import SingleThreadedExecutor
++        from rclpy.parameter import Parameter
++        from rosgraph_msgs.msg import Clock
++        from sensor_msgs.msg import JointState
++        from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
++
++        self._SetPause, self._StepSimulation = SetPause, StepSimulation
++        self._JointTrajectory, self._JointTrajectoryPoint = JointTrajectory, JointTrajectoryPoint
++        self.side = side
++        self.joints = ARM_JOINTS[side]
++        self._changed = threading.Condition()
++        self._sim_time_s = 0.0
++        self._state: Optional[Tuple[List[float], List[float], float]] = None
++        self.stale_s = 0.0
++        self.stale_max_s = 0.0
++        self.missed_states = 0
++        if not rclpy.ok():
++            rclpy.init()
++        # one node per side: two nodes of one name in a process clash on their parameter services
++        self._node = rclpy.create_node("%s_%s" % (node_name, side), parameter_overrides=[Parameter("use_sim_time", value=True)])
++        self._command = self._node.create_publisher(JointTrajectory, "/arm_%s_controller/joint_trajectory" % side, 1)
++        self._node.create_subscription(JointState, JOINT_STATES_TOPIC, self._on_joints, 10)
++        self._node.create_subscription(Clock, "/clock", self._on_clock, 10)
++        self._pause = self._node.create_client(SetPause, PAUSE_SERVICE)
++        self._step = self._node.create_client(StepSimulation, STEP_SERVICE)
++        self._executor = SingleThreadedExecutor()
++        self._executor.add_node(self._node)
++        self._spinner = threading.Thread(target=self._executor.spin, daemon=True)
++        self._spinner.start()
++        self._found = False
++        try:
++            self._connect(float(timeout_s))
++        except BaseException:
++            if self._found:                   # leave the simulation running, as found; the first error is the one raised
++                try:
++                    self._set_pause(False)
++                except Exception:  # noqa: BLE001
++                    pass
++            self._shutdown()
++            raise
++
++    def _connect(self, timeout_s: float) -> None:
++        deadline = time.monotonic() + timeout_s
++        missing = [name for name, client in ((PAUSE_SERVICE, self._pause), (STEP_SERVICE, self._step))
++                   if not client.wait_for_service(timeout_sec=max(deadline - time.monotonic(), 0.0))]
++        if not missing:
++            self._found = True
++            self._set_pause(False)            # joint states come only while physics runs (an earlier script may have left it paused)
++            with self._changed:
++                self._changed.wait_for(lambda: self._state is not None, timeout=max(deadline - time.monotonic(), 0.0))
++            if self._state is None:
++                missing.append("%s with %s" % (JOINT_STATES_TOPIC, ", ".join(self.joints)))
++        if missing:
++            raise RuntimeError("no Kangaroo simulation within %.0f s: missing %s" % (timeout_s, "; ".join(missing)))
++        # a lost step cannot be asked again; so first ask for 0 steps until answered ("must be positive"; nothing steps)
++        self._call(self._step, self._StepSimulation.Request(steps=0), check=False, attempts=3)
++        self._set_pause(True)
++        settle = time.monotonic() + 1.0       # the clock of the last steps is still on its way: wait for 50 ms without one
++        with self._changed:
++            seen = None
++            while seen != self._sim_time_s:
++                if time.monotonic() > settle:
++                    raise RuntimeError("/clock still moves 1 s after the pause: something else runs the simulation")
++                seen = self._sim_time_s
++                self._changed.wait_for(lambda: self._sim_time_s != seen, timeout=0.05)
++        for _ in range(3):                    # one more step publishes one clock message, the last: the true time
++            self._call(self._step, self._StepSimulation.Request(steps=1), timeout_s=10.0)
++            with self._changed:
++                if self._changed.wait_for(lambda: self._sim_time_s != seen, timeout=0.2):
++                    Ros2Link._counted_s = self._sim_time_s
++                    return
++        raise RuntimeError("no /clock after 3 single steps")
++
++    # -- callbacks -----------------------------------------------------------
++    def _on_joints(self, message) -> None:
++        positions = dict(zip(message.name, message.position))
++        velocities = dict(zip(message.name, message.velocity)) if message.velocity else {}
++        if any(name not in positions for name in self.joints):
++            return
++        with self._changed:
++            self._state = ([float(positions[name]) for name in self.joints], [float(velocities.get(name, 0.0)) for name in self.joints],
++                           message.header.stamp.sec + 1e-9 * message.header.stamp.nanosec)
++            self._changed.notify_all()
++
++    def _on_clock(self, message) -> None:
++        with self._changed:
++            self._sim_time_s = message.clock.sec + 1e-9 * message.clock.nanosec
++            self._changed.notify_all()
++
++    # -- services ------------------------------------------------------------
++    def _call(self, client, request, timeout_s: float = 2.0, check: bool = True, attempts: int = 1):
++        """``attempts`` > 1 only for requests that may run twice: a new client's first answer is now and then lost
++        (a new link in a process that had links before)."""
++
++        for _ in range(attempts):
++            future = client.call_async(request)
++            deadline = time.monotonic() + timeout_s
++            while not future.done() and time.monotonic() < deadline:
++                time.sleep(0.001)
++            if future.done():
++                break
++        else:
++            raise RuntimeError("%s did not answer within %d x %.0f s" % (client.srv_name, attempts, timeout_s))
++        response = future.result()
++        if check and not response.success:
++            raise RuntimeError("%s: %s" % (client.srv_name, response.message))
++        return response
++
++    def _set_pause(self, paused: bool) -> None:
++        self._call(self._pause, self._SetPause.Request(paused=paused), attempts=3)
++
++    # -- state ---------------------------------------------------------------
++    def joint_state(self) -> Tuple[List[float], List[float], float]:
++        with self._changed:
++            return self._state
++
++    def sim_time_s(self) -> float:
++        with self._changed:
++            return max(self._sim_time_s, Ros2Link._counted_s)
++
++    def base_pose(self) -> None:
++        return None
++
++    def put_base_back(self) -> bool:
++        return False                          # fixed feet: nothing moved
++
++    def frames(self) -> int:
++        return 0
++
++    # -- acting --------------------------------------------------------------
++    def send(self, positions: Sequence[float], time_s: float) -> None:
++        """Targets for the four arm joints, to be reached ``time_s`` (sim time) after the controller receives them."""
++
++        from rclpy.duration import Duration
++
++        message = self._JointTrajectory(joint_names=list(self.joints))      # stamp 0: start on receipt
++        message.points.append(self._JointTrajectoryPoint(positions=[float(v) for v in positions],
++                                                         time_from_start=Duration(seconds=float(time_s)).to_msg()))
++        self._command.publish(message)
++
++    def step(self, iterations: int) -> float:
++        """Let ``iterations`` physics steps pass; returns the sim time afterwards.
++
++        A tick needs at least 20 ms (>= 41 physics steps): joint states come at 50 Hz.  If none stamped later than
++        the end - 20.5 ms comes within 1 s (wall), the newest one stays and ``missed_states`` counts it."""
++
++        end = self.sim_time_s() + int(iterations) * PHYSICS_STEP_S
++        newest = end - JOINT_STATE_PERIOD_S - PHYSICS_STEP_S
++        self._call(self._step, self._StepSimulation.Request(steps=int(iterations)), timeout_s=10.0)
++        Ros2Link._counted_s = end
++        with self._changed:                   # the newest joint state of the tick may still be on its way
++            if not self._changed.wait_for(lambda: self._state[2] > newest, timeout=1.0):
++                self.missed_states += 1       # now and then one is lost: go on with the newest there is (stale_s shows it)
++            stamp = self._state[2]
++        now = self.sim_time_s()
++        self.stale_s = now - stamp
++        self.stale_max_s = max(self.stale_max_s, self.stale_s)
++        return now
++
++    def close(self) -> None:
++        """Let the simulation run again and leave."""
++
++        if self._node is None:
++            return
++        try:
++            paused_at = self._sim_time_s
++            self._set_pause(False)
++            with self._changed:
++                if not self._changed.wait_for(lambda: self._sim_time_s > paused_at, timeout=1.0):
++                    raise RuntimeError("/clock does not move 1 s after the unpause")
++        finally:
++            self._shutdown()
++
++    def _shutdown(self) -> None:
++        self._executor.shutdown(timeout_sec=5.0)
++        self._spinner.join(timeout=5.0)
++        if self._spinner.is_alive():
++            raise RuntimeError("the executor thread of %s did not stop within 5 s; its node is left alive" % self._node.get_name())
++        self._node.destroy_node()
++        self._node = None
++
++
++__all__ = ["ARM_JOINTS", "PAUSE_SERVICE", "PHYSICS_STEP_S", "Ros2Link", "STEP_SERVICE"]
+diff --git a/ring_so3/robots.py b/ring_so3/robots.py
+index 8cb94f5..b335091 100644
+--- a/ring_so3/robots.py
++++ b/ring_so3/robots.py
+@@ -1,13 +1,13 @@
+-"""The robot behind the inverse kinematics: the light robot, or the TIAGo arm in Gazebo.
++"""The robot behind the inverse kinematics: the light robot, the TIAGo arm in Gazebo, or a Kangaroo arm in MuJoCo.
+ 
+-Both have the same few calls, so the closed loop (:mod:`ring_so3.ik.session`), the simulator
++All three have the same few calls, so the closed loop (:mod:`ring_so3.ik.session`), the simulator
+ and the experiments do not care which one runs:
+ 
+ * ``q``: the joint angles now (measured);
+ * ``follow(targets, time_s, dt)``: every joint moves toward its target as if it should arrive
+   after ``time_s``, for one tick of ``dt``.  With the target a joint's goal-ring angle and
+   ``time_s = 1 / kappa`` this is "the joint follows its goal ring with gain kappa";
+-* ``reset(q)``: put the arm at ``q`` (the light robot at once; Gazebo moves there);
++* ``reset(q)``: put the arm at ``q`` (the light robot at once; Gazebo and MuJoCo move there);
+ * ``displace(joint, angle)``: push one joint (light robot only).
+ """
+ 
+@@ -77,10 +77,12 @@ class GazeboRobot:
+     name = "gazebo"
+     tolerance = 0.01
+     place_speed = 1.0
++    #: the chains this robot has start with this
++    chain_prefix = "tiago"
+ 
+     def __init__(self, chain: Chain, link: Any, physics_step_s: float = 0.001) -> None:
+-        if not chain.name.startswith("tiago"):
+-            raise ValueError("Gazebo has the TIAGo arm only; %s is not one of its chains" % chain.name)
++        if not chain.name.startswith(self.chain_prefix):
++            raise ValueError("the %s robot has the %s chains only; %s is not one of them" % (self.name, self.chain_prefix, chain.name))
+         self.chain = chain
+         self.link = link
+         self.physics_step_s = float(physics_step_s)
+@@ -135,4 +137,25 @@ class GazeboRobot:
+         return {"robot": self.name, "physics_step_s": self.physics_step_s, "base": self.link.base_pose()}
+ 
+ 
+-__all__ = ["GazeboRobot", "LightRobot", "start_pose"]
++class KangarooRobot(GazeboRobot):
++    """One arm of PAL's Kangaroo in MuJoCo, in lock step as :class:`GazeboRobot` (the same loop).
++
++    ``link``: a :class:`ring_so3.kangaroo.link.Ros2Link` for the chain's side (or a stand-in with the same calls).
++    """
++
++    name = "kangaroo"
++    #: 2 x the largest steady offset under gravity (0.00137 rad), rounded up:
++    #: docs/experiments/2026-10-26_kangaroo_plant_checks.md
++    tolerance = 0.005
++    place_speed = 1.0
++
++    def __init__(self, chain: Chain, link: Any) -> None:
++        self.chain_prefix = "kangaroo_" + link.side
++        super().__init__(chain, link, physics_step_s=link.PHYSICS_STEP_S)
++
++    def describe(self) -> dict:
++        return {**super().describe(), "joint_state_stale_max_s": self.link.stale_max_s,
++                "joint_state_missed": self.link.missed_states, "tolerance": self.tolerance}
++
++
++__all__ = ["GazeboRobot", "KangarooRobot", "LightRobot", "start_pose"]
+diff --git a/ring_so3/sim/ik_page.py b/ring_so3/sim/ik_page.py
+index 6eb61f8..2bf303a 100644
+--- a/ring_so3/sim/ik_page.py
++++ b/ring_so3/sim/ik_page.py
+@@ -155,10 +155,11 @@ function buildControls() {
+   const ms = $("method"); ms.innerHTML = ""; labels = {};
+   for (const m of cfg.methods) { const o = document.createElement("option"); o.value = m.name; o.textContent = m.label; ms.appendChild(o); labels[m.name] = m.label; }
+   const rs = $("robot"); rs.innerHTML = "";
+-  for (const name of ["light", "gazebo"]) {
++  const labels3 = {light: "Light robot (no dynamics)", gazebo: "TIAGo in Gazebo", kangaroo: "Kangaroo in MuJoCo"};
++  for (const name of Object.keys(labels3)) {
+     const o = document.createElement("option"); o.value = name;
+-    o.textContent = name === "light" ? "Light robot (no dynamics)" : "TIAGo in Gazebo";
+-    o.disabled = name === "gazebo" && (!cfg.robots.includes("gazebo") || !cfg.gazebo_chains.includes(cfg.chain));
++    o.textContent = labels3[name];
++    o.disabled = name !== "light" && !(cfg.robot_chains[name] || []).includes(cfg.chain);
+     rs.appendChild(o);
+   }
+   const box = $("joints"); box.innerHTML = ""; sliders = [];
+@@ -363,13 +364,13 @@ function drawRuns() {
+   g.strokeStyle = css("--muted"); g.setLineDash([4, 4]); g.lineWidth = 1; g.beginPath(); g.moveTo(X(0), Y(5)); g.lineTo(X(xmax), Y(5)); g.stroke(); g.setLineDash([]);
+   for (const r of runs) {
+     g.strokeStyle = css("--m-" + r.method); g.lineWidth = r.live ? 2.6 : 1.8; g.globalAlpha = r.live ? 1 : 0.8; g.lineJoin = "round";
+-    g.setLineDash(r.robot === "gazebo" ? [6, 3] : []); g.beginPath();
++    g.setLineDash(r.robot !== "light" ? [6, 3] : []); g.beginPath();
+     r.t.forEach((t, i) => i ? g.lineTo(X(t), Y(r.error[i])) : g.moveTo(X(t), Y(r.error[i]))); g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+   }
+   const body = $("runtable").tBodies[0]; body.innerHTML = "";
+   for (const r of runs.slice().reverse()) {
+     const tr = document.createElement("tr");
+-    const cells = ["", r.robot === "gazebo" ? "Gazebo" : "light", r.start_error.toFixed(0) + "°", r.reached_s === null ? "not yet" : r.reached_s.toFixed(1) + " s",
++    const cells = ["", ({gazebo: "Gazebo", kangaroo: "Kangaroo"})[r.robot] || "light", r.start_error.toFixed(0) + "°", r.reached_s === null ? "not yet" : r.reached_s.toFixed(1) + " s",
+                    r.final_error === null ? "–" : r.final_error.toFixed(1) + "°", r.path_ratio === null ? "–" : r.path_ratio.toFixed(2)];
+     cells.forEach((text, i) => { const td = document.createElement("td"); td.textContent = text; tr.appendChild(td); });
+     const key = document.createElement("span"); key.className = "key"; key.style.background = css("--m-" + r.method);
+@@ -434,6 +435,10 @@ function drawRings() {
+ function drawGazebo() {
+   if (!snap || !cfg) return;
+   const img = $("gz"), note = $("gznote"), gzb = snap.gazebo;
++  if (snap.robot === "kangaroo") {
++    img.hidden = true; note.hidden = false; note.textContent = "MuJoCo shows the robot in its own window";
++    $("gzline").textContent = "MuJoCo time " + gzb.sim_time.toFixed(2) + " s, stepped " + cfg.tick_ms + " ms per tick of the network · largest distance of a joint from its target " + Math.max(...gzb.lag.map(v => Math.abs(deg(v)))).toFixed(1) + "°"; return;
++  }
+   if (!cfg.robots.includes("gazebo")) {
+     img.hidden = true; note.hidden = false;
+     note.textContent = "Gazebo is not running beside this simulator. Start it with docker/run.bash gazebo up (see the README), then start the simulator inside it; the light robot works without.";
+@@ -441,7 +446,7 @@ function drawGazebo() {
+   }
+   if (!gzb) {
+     img.hidden = true; note.hidden = false;
+-    note.textContent = cfg.gazebo_chains.includes(cfg.chain) ? "Gazebo is running. Choose \"TIAGo in Gazebo\" as the robot to move its arm." : "Gazebo has the TIAGo arm only: choose one of the tiago chains.";
++    note.textContent = (cfg.robot_chains.gazebo || []).includes(cfg.chain) ? "Gazebo is running. Choose \"TIAGo in Gazebo\" as the robot to move its arm." : "Gazebo has the TIAGo arm only: choose one of the tiago chains.";
+     $("gzline").textContent = ""; return;
+   }
+   if (gzb.frames > 0 && gzb.frames !== gzFrames && !gzLoading) {
+diff --git a/ring_so3/sim/ik_server.py b/ring_so3/sim/ik_server.py
+index 126936b..5638e81 100644
+--- a/ring_so3/sim/ik_server.py
++++ b/ring_so3/sim/ik_server.py
+@@ -8,7 +8,7 @@ Served by the HTTP server of :mod:`ring_so3.sim.server` with the page of :mod:`r
+   :mod:`ring_so3.standard.ik`.  With any method but the two ring ones the network still runs and
+   shows its rings, but the joints follow the method, which reads the exact joint angles.
+ * **Robots**: ``light`` (no dynamics), and ``gazebo`` when the simulator was started beside a
+-  running Gazebo (the TIAGo chains only).
++  running Gazebo (the TIAGo chains only), ``kangaroo`` beside the MuJoCo Kangaroo (its chains only).
+ * **Runs**: a run starts when a goal is given (random goal, a drag that is let go, or "same
+   goal, other method").  Its distance from the goal over time is kept, so that methods can be
+   compared on the same start pose and goal.
+@@ -26,7 +26,7 @@ from typing import Any, Callable, Dict, List, Optional
+ 
+ import numpy as np
+ 
+-from ..chains import CHAINS, MODEL_NAMES, get_chain
++from ..chains import CHAINS, KANGAROO_MODELS, MODEL_NAMES, get_chain
+ from ..ik import rules
+ from ..ik.session import IkSession
+ from ..kinematics import Chain, lift_pitch_yaw, nearest_rotation, orientation_error_deg, rotation_angle
+@@ -40,6 +40,7 @@ METHOD_LABELS = {"ring": "Ring IK (spiking network, cascade)", "ring_all": "Ring
+                  "cascade": "Exact cascade (no neurons)", "dls": "Damped least squares", "transpose": "Jacobian transpose",
+                  "ccd": "Cyclic coordinate descent"}
+ COMMANDS = ("goal", "random_goal", "method", "robot", "replay", "target", "stop", "speed", "chain", "quit")
++ROBOT_CHAINS = {"gazebo": "tiago", "kangaroo": "kangaroo_"}     # robot -> prefix of the chains it can move
+ KEPT_RUNS = 6
+ REACHED_DEG = 5.0
+ 
+@@ -69,7 +70,7 @@ class IkSimulator:
+     # -- building ------------------------------------------------------------
+     def load(self, chain_name: str, keep_pose: Optional[np.ndarray] = None) -> None:
+         self.chain = get_chain(chain_name)
+-        if self.robot_name == "gazebo" and not self.chain.name.startswith("tiago"):
++        if not self._usable(self.robot_name):
+             self.robot_name = "light"
+         started = time.time()
+         self.network = self.make_network(self.chain, cascade=self.method != "ring_all")
+@@ -85,8 +86,11 @@ class IkSimulator:
+         self._previous_rotation = self.chain.rotation(self.session.q)
+         self.state.publish("config", self.config())
+ 
++    def _usable(self, robot: str) -> bool:
++        return robot == "light" or self.chain.name.startswith(ROBOT_CHAINS.get(robot, "\0"))
++
+     def _robot(self, name: str, q: Optional[np.ndarray] = None) -> Any:
+-        if name == "gazebo" and self.make_robot is not None:
++        if name != "light" and self.make_robot is not None:
+             return self.make_robot(name, self.chain)
+         return LightRobot(self.chain, q if q is not None else start_pose(self.chain))
+ 
+@@ -96,7 +100,7 @@ class IkSimulator:
+ 
+     def config(self) -> Dict[str, Any]:
+         return {
+-            "chain": self.chain.name, "description": self.chain.description, "chains": MODEL_NAMES,
++            "chain": self.chain.name, "description": self.chain.description, "chains": MODEL_NAMES + KANGAROO_MODELS,
+             "joints": [{"name": j.name, "lower": j.lower, "upper": j.upper, "circular": j.circular, "axis": j.axis} for j in self.chain.joints],
+             "neurons": int(self.network.neuron_count()), "ring_size": int(self.session.ring_size),
+             "tick_ms": float(self.network.options.tick_ms), "build_s": round(self.build_s, 2),
+@@ -104,7 +108,7 @@ class IkSimulator:
+             "stub": isinstance(self.network, StubNetwork), "ik": True,
+             "caps": [round(float(c), 4) for c in rules.share_caps(self.chain, self.session.design, self.session.ring_size)],
+             "methods": [{"name": m, "label": METHOD_LABELS[m]} for m in METHODS], "robots": list(self.robots),
+-            "gazebo_chains": [name for name in MODEL_NAMES if name.startswith("tiago")],
++            "robot_chains": {r: [n for n in MODEL_NAMES + KANGAROO_MODELS if n.startswith(ROBOT_CHAINS[r])] for r in self.robots if r in ROBOT_CHAINS},
+         }
+ 
+     # -- commands ------------------------------------------------------------
+@@ -124,7 +128,7 @@ class IkSimulator:
+         elif name == "method" and command.get("method") in METHODS:
+             self._set_method(command["method"])
+         elif name == "robot" and command.get("robot") in self.robots:
+-            if command["robot"] != self.robot_name and (command["robot"] != "gazebo" or self.chain.name.startswith("tiago")):
++            if command["robot"] != self.robot_name and self._usable(command["robot"]):
+                 self.robot_name = command["robot"]
+                 self._end_run()
+                 self.session.robot = self._robot(self.robot_name, self.session.q.copy())
+@@ -254,10 +258,10 @@ class IkSimulator:
+         shares = result.shares if session.method is None or session.method_shares is None else session.method_shares
+         robot = session.robot
+         gazebo = None
+-        if self.robot_name == "gazebo":
++        if self.robot_name != "light":
+             link = robot.link
+-            gazebo = {"sim_time": round(float(robot.sim_time_s), 3), "frames": int(link.frames()), "lag": r3(robot.lag),
+-                      "overshoot_ms": round(1000.0 * float(link.overshoot_s), 2)}
++            gazebo = {"sim_time": round(float(robot.sim_time_s), 3), "frames": int(link.frames()), "lag": r3(np.ravel(robot.lag)),
++                      "overshoot_ms": round(1000.0 * float(getattr(link, "overshoot_s", 0.0)), 2)}
+         return {
+             "t": round(tick.t_ms / 1000.0, 3), "chain": chain.name, "mode": self.mode, "method": self.method, "robot": self.robot_name,
+             "speed": self.speed, "q": r3(q), "target": r3(self.manual_target if self.mode == "manual" else robot.target),
+diff --git a/scripts/ik_simulator.py b/scripts/ik_simulator.py
+index 1f622a3..3fd2235 100644
+--- a/scripts/ik_simulator.py
++++ b/scripts/ik_simulator.py
+@@ -4,6 +4,12 @@
+     docker/run.bash sim -- 'python3 -B scripts/ik_simulator.py --chain tiago7'
+     then open http://localhost:8765/
+ 
++With the Kangaroo in MuJoCo as the robot (see README 11.6):
++
++    docker/run.bash kangaroo up ik-kangaroo
++    docker/run.bash kangaroo exec ik-kangaroo -- 'python3 -B scripts/ik_simulator.py --chain kangaroo_left4 --kangaroo'
++    docker/run.bash kangaroo down ik-kangaroo
++
+ With Gazebo as the robot (the TIAGo in an empty world; --gpu for the camera picture):
+ 
+     docker/run.bash gazebo up ik-gazebo --gpu
+@@ -12,7 +18,7 @@ With Gazebo as the robot (the TIAGo in an empty world; --gpu for the camera pict
+ 
+ The page shows the arm with the goal at its hand (drag a ring of the goal to turn it), a choice of
+ methods (the ring IK; the exact cascade; damped least squares, Jacobian transpose and cyclic
+-coordinate descent as standard methods), the robot (light robot or Gazebo), the distance from the
++coordinate descent as standard methods), the robot (light robot, Gazebo or the Kangaroo), the distance from the
+ goal for the last runs side by side, every joint's share, and the spikes of all rings.
+ 
+ ``--stub`` replaces the spiking network by the exact rule, to try the page where NEST is not
+@@ -25,7 +31,7 @@ import sys
+ 
+ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ 
+-from ring_so3.chains import MODEL_NAMES  # noqa: E402
++from ring_so3.chains import KANGAROO_MODELS, MODEL_NAMES  # noqa: E402
+ from ring_so3.design import Design  # noqa: E402
+ from ring_so3.ik.design import IkDesign  # noqa: E402
+ from ring_so3.sim.ik_server import METHODS, IkSimulator  # noqa: E402
+@@ -34,10 +40,11 @@ from ring_so3.sim.server import SimServer, SimState, StubIkNetwork  # noqa: E402
+ 
+ def main(argv=None):
+     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+-    parser.add_argument("--chain", default="tiago7", choices=MODEL_NAMES)
++    parser.add_argument("--chain", default="tiago7", choices=MODEL_NAMES + KANGAROO_MODELS)
+     parser.add_argument("--method", default="ring", choices=METHODS)
+     parser.add_argument("--gazebo", action="store_true", help="a Gazebo with the TIAGo runs beside this process: offer it as the robot")
+-    parser.add_argument("--robot", default=None, choices=("light", "gazebo"), help="default: gazebo with --gazebo, else light")
++    parser.add_argument("--kangaroo", action="store_true", help="the Kangaroo in MuJoCo runs beside this process (kangaroo_* chains): offer it as the robot")
++    parser.add_argument("--robot", default=None, choices=("light", "gazebo", "kangaroo"), help="default: the robot started beside, else light")
+     parser.add_argument("--port", type=int, default=int(os.environ.get("SIM_PORT", "8765")))
+     parser.add_argument("--host", default="0.0.0.0")
+     parser.add_argument("--threads", type=int, default=8)
+@@ -68,8 +75,22 @@ def main(argv=None):
+         make_robot = lambda name, chain: GazeboRobot(chain, link)  # noqa: E731
+         robots = ("light", "gazebo")
+         state.image = link.jpeg
++    links = {}
++    if args.kangaroo:
++        from ring_so3.kangaroo.link import Ros2Link
++        from ring_so3.robots import KangarooRobot
++
++        def link_for(chain):                      # one link per side, opened when first needed
++            side = "left" if "left" in chain.name else "right"
++            if side not in links:
++                links[side] = Ros2Link(side)
++            return links[side]
++
++        previous = make_robot
++        make_robot = lambda name, chain: KangarooRobot(chain, link_for(chain)) if name == "kangaroo" else previous(name, chain)  # noqa: E731
++        robots += ("kangaroo",)
+     chain = args.chain
+-    robot = args.robot or ("gazebo" if args.gazebo and chain.startswith("tiago") else "light")
++    robot = args.robot or ("kangaroo" if args.kangaroo and chain.startswith("kangaroo_") else "gazebo" if args.gazebo and chain.startswith("tiago") else "light")
+     server = SimServer(state, args.host, args.port)
+     server.start()
+     simulator = IkSimulator(make_network, chain, state, make_robot=make_robot, robots=robots, robot=robot, method=args.method,
+@@ -80,7 +101,11 @@ def main(argv=None):
+     except KeyboardInterrupt:
+         pass
+     finally:
+-        server.stop()
++        for close in [server.stop] + [link.close for link in links.values()]:
++            try:
++                close()
++            except Exception as error:            # report it, and still close the rest
++                print("closing failed: %r" % (error,), file=sys.stderr, flush=True)
+     return 0
+ 
+ 
+diff --git a/scripts/kangaroo_report.py b/scripts/kangaroo_report.py
+new file mode 100644
+index 0000000..459bba4
+--- /dev/null
++++ b/scripts/kangaroo_report.py
+@@ -0,0 +1,233 @@
++#!/usr/bin/env python3
++"""Figures and tables of the Kangaroo measurements, from docs/kangaroo/results/data/.
++
++    python3 -B scripts/kangaroo_report.py [--data DIR] [--out DIR]
++
++Writes <out>/tables.md, <out>/figures/*.{png,pdf} and <out>/figures/manifest.json. Missing inputs are listed in the
++manifest and skipped. Numbers come from the JSON files through the helpers of scripts/report.py.
++"""
++
++import argparse
++import datetime
++import hashlib
++import json
++import os
++import subprocess
++import sys
++
++import numpy as np
++
++HERE = os.path.dirname(os.path.abspath(__file__))
++sys.path.insert(0, HERE)
++sys.path.insert(0, os.path.join(HERE, ".."))
++
++from report import fmt, rows_of, stats, tracking_summary, triple  # noqa: E402
++from ring_so3.ik.experiments import reach_summary  # noqa: E402
++
++ROOT = os.path.normpath(os.path.join(HERE, ".."))
++SIDES, SPEEDS = ("left", "right"), ("0.25", "0.50", "1.00")
++METHODS = (("light_ring", "light ring"), ("mujoco_ring", "MuJoCo ring"), ("mujoco_dls", "MuJoCo dls"))
++COLORS = {"left": "#2a78d6", "right": "#eb6834"}
++METHOD_COLORS = {"light_ring": "#1baf7a", "mujoco_ring": "#2a78d6", "mujoco_dls": "#eb6834"}
++
++
++def inputs():
++    """Every expected input, relative to --data."""
++    out = ["static/kangaroo_%s4.json" % s for s in SIDES]
++    out += ["tracking/kangaroo_%s4_%s.json" % (s, v) for s in SIDES for v in SPEEDS]
++    out += ["reach/%s_%s.json" % (m, s) for s in SIDES for m, _ in METHODS]
++    return out + ["calibration/comparison.json"]
++
++
++def load(data):
++    docs, missing, manifest = {}, [], []
++    for rel in inputs():
++        path = os.path.join(data, rel)
++        if not os.path.isfile(path):
++            missing.append(rel)
++            continue
++        with open(path, "rb") as stream:
++            raw = stream.read()
++        docs[rel] = json.loads(raw.decode("utf-8"))
++        entry = {"path": rel, "size": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
++        if isinstance(docs[rel], dict):
++            options, design = docs[rel].get("options", {}), docs[rel].get("design", {})
++            entry["seeds_threads"] = {k: v for k, v in (
++                ("design_seed", design.get("seed")), ("seed", options.get("seed")), ("threads", options.get("threads")),
++                ("pose_seed", docs[rel].get("pose_seed")), ("goal_seed", docs[rel].get("goal_seed")),
++                ("pair_seed", docs[rel].get("pair_seed"))) if v is not None}
++        manifest.append(entry)
++    return docs, missing, manifest
++
++
++def commit():
++    try:
++        return subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT, capture_output=True, text=True, timeout=10, check=True).stdout.strip() or "unknown"
++    except Exception:
++        return "unknown"
++
++
++def num(v):
++    return fmt(float("nan") if v is None else v)
++
++
++def tracking_runs(docs):
++    return {(s, v): tracking_summary(docs[k]) for s in SIDES for v in SPEEDS
++            for k in ["tracking/kangaroo_%s4_%s.json" % (s, v)] if k in docs}
++
++
++# -- tables -----------------------------------------------------------------------
++def tables(docs):
++    out = ["# Tables of the Kangaroo results", "", "Written by `scripts/kangaroo_report.py`; do not edit by hand. Errors in degrees.", ""]
++    static = [(s, rows_of(docs["static/kangaroo_%s4.json" % s])) for s in SIDES if "static/kangaroo_%s4.json" % s in docs]
++    if static:
++        out += ["## Held poses", "", "| Arm | Poses | Error, median / p90 / max (deg) |", "| --- | ---: | --- |"]
++        out += ["| %s | %d | %s |" % (s, len(r), triple([x["error_deg"] for x in r])) for s, r in static] + [""]
++    runs = tracking_runs(docs)
++    if runs:
++        out += ["## Tracking", "", "| Arm | Joint speed limit (rad/s) | Delay (s) | Error while moving, median / p90 (deg) | Error at rest, median / p90 (deg) |",
++                "| --- | ---: | ---: | --- | --- |"]
++        out += ["| %s | %s | %s | %s / %s | %s / %s |" % (s, v, fmt(m["delay_s"]), fmt(m["error_moving"][0]), fmt(m["error_moving"][1]),
++                                                       fmt(m["error_rest"][0]), fmt(m["error_rest"][1])) for (s, v), m in runs.items()] + [""]
++    reach = [(s, m, label, docs["reach/%s_%s.json" % (m, s)]) for s in SIDES for m, label in METHODS if "reach/%s_%s.json" % (m, s) in docs]
++    if reach:
++        out += ["## Reaching", "", "| Arm | Method | Trials | Reached (%) | Final error of reached, median (deg) | Time to 5 deg, median (s) | Path ratio, median | Missed at a limit | Missed blocked | Missed slow |",
++                "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"]
++        for s, _, label, d in reach:
++            r = d["rows"]
++            q = reach_summary(r)
++            if not r:
++                continue
++            miss = [x for x in r if not x["reached"] and not x["at_limit"]]
++            blocked = sum(1 for x in miss if x.get("lag_final_rad") and max(abs(v) for v in x["lag_final_rad"]) > 0.005)
++            out.append("| %s | %s | %d | %s | %s | %s | %s | %d | %d | %d |" % (
++                s, label, q["trials"], fmt(100 * q["reached"]), num(q["final_error_reached_median_deg"]),
++                num(q["time_to_5_deg_median_s"]), num(q["path_ratio_median"]),
++                q["missed_at_limit"], blocked, len(miss) - blocked))
++        out += ["", "blocked: max |final lag| > 0.005 rad over joints; rows without lag data count as slow; time to 5 deg median over all trials that got there, "
++                "final error and path ratio over reached trials (as reach_summary).", ""]
++    cal = docs.get("calibration/comparison.json")
++    if cal:
++        out += ["## Calibration comparison", "", "| Array | Shape | Largest absolute difference | Relative difference | Identical |", "| --- | --- | ---: | ---: | --- |"]
++        out += ["| %s | %s | %.3g | %.3g | %s |" % (c["array"], "x".join(str(n) for n in c["shape"]),
++                                          c["max_abs_difference"], c["relative"], "yes" if c["identical"] else "no") for c in cal] + [""]
++    return "\n".join(out).rstrip() + "\n"
++
++
++# -- figures ----------------------------------------------------------------------
++def save(plt, fig, out_dir, name):
++    for ext in ("png", "pdf"):
++        fig.savefig(os.path.join(out_dir, name + "." + ext))
++    plt.close(fig)
++    return name
++
++
++def panels(plt, n, **kw):
++    fig, axes = plt.subplots(1, n, figsize=(4.6 * n, 3.6), squeeze=False, **kw)
++    return fig, axes[0]
++
++
++def figures(docs, out_dir):
++    import matplotlib
++    matplotlib.use("Agg")
++    import matplotlib.pyplot as plt
++
++    plt.rcParams.update({"axes.grid": True, "grid.alpha": 0.3, "savefig.bbox": "tight", "figure.dpi": 150})
++    os.makedirs(out_dir, exist_ok=True)
++    done = []
++    static = {s: rows_of(docs["static/kangaroo_%s4.json" % s]) for s in SIDES if "static/kangaroo_%s4.json" % s in docs}
++    static = {s: r for s, r in static.items() if r}
++    if static:
++        fig, (ax,) = panels(plt, 1)
++        for s, r in static.items():
++            e = np.sort([x["error_deg"] for x in r])
++            ax.plot(e, np.arange(1, e.size + 1) / e.size * 100, color=COLORS[s], label=s)
++        for mark in (5, 10):
++            ax.axvline(mark, color="grey", ls=":")
++        ax.set(xlabel="orientation error (deg)", ylabel="poses with at most this error (%)", title="Held poses")
++        ax.legend()
++        done.append(save(plt, fig, out_dir, "static_error"))
++        fig, (ax,) = panels(plt, 1)
++        for s, r in static.items():
++            med = np.median([x["link_error_deg"] for x in r], axis=0)
++            ax.plot(range(1, len(med) + 1), med, "-o", color=COLORS[s], label=s)
++        ax.set(xlabel="link (number of joints passed)", ylabel="median orientation error (deg)", title="Error along the arm")
++        ax.legend()
++        done.append(save(plt, fig, out_dir, "error_along_arm"))
++    runs = tracking_runs(docs)
++    if runs:
++        fig, axes = panels(plt, 2)
++        for s in SIDES:
++            pts = [(float(v), m) for (side, v), m in runs.items() if side == s]
++            for ax, key, label in ((axes[0], "delay_s", "delay (s)"), (axes[1], None, "median error while moving (deg)")):
++                ax.plot([p[0] for p in pts], [p[1][key] if key else p[1]["error_moving"][0] for p in pts], "-o", color=COLORS[s], label=s)
++                ax.set(xlabel="joint speed limit (rad/s)", ylabel=label)
++        axes[0].legend()
++        done.append(save(plt, fig, out_dir, "tracking"))
++    reach = {(s, m): docs["reach/%s_%s.json" % (m, s)]["rows"] for s in SIDES for m, _ in METHODS
++             if "reach/%s_%s.json" % (m, s) in docs and docs["reach/%s_%s.json" % (m, s)]["rows"]}
++    if reach:
++        fig, axes = panels(plt, 2, sharey=True)
++        for ax, s in zip(axes, SIDES):
++            ax.set(title=s, xlabel="time (s)", ylabel="distance from the goal (deg), trials still running")
++            for m, label in METHODS:
++                rows = reach.get((s, m))
++                if not rows:
++                    continue
++                grid = np.linspace(0, max(r["t"][-1] for r in rows), 100)
++                e = np.array([np.interp(grid, r["t"], r["error_deg"], right=np.nan) for r in rows])   # NaN once a trial has ended
++                lo, med, hi = np.nanpercentile(e, [25, 50, 75], axis=0)    # over the trials still running
++                ax.plot(grid, med, color=METHOD_COLORS[m], label=label)
++                ax.fill_between(grid, lo, hi, color=METHOD_COLORS[m], alpha=0.2, lw=0)
++            ax.legend()
++        done.append(save(plt, fig, out_dir, "reach_error_over_time"))
++    mj = {(s, m): docs["reach/%s_%s.json" % (m, s)] for s in SIDES for m in ("mujoco_ring", "mujoco_dls") if "reach/%s_%s.json" % (m, s) in docs}
++    if mj:
++        fig, axes = panels(plt, 3)
++        keys = list(mj)
++        for i, k in enumerate(keys):
++            rows = mj[k]["rows"]
++            col = COLORS[k[0]]
++            hatch = "//" if k[1] == "mujoco_dls" else None
++            med = [r["lag_median_rad"] for r in rows if r.get("lag_median_rad") is not None]
++            fin = [[abs(v) for v in r["lag_final_rad"]] for r in rows if r.get("lag_final_rad")]
++            if med:
++                axes[0].boxplot([med], positions=[i], widths=0.6, patch_artist=True, boxprops={"facecolor": col, "alpha": 0.5, "hatch": hatch})
++            for j, col_vals in enumerate(zip(*fin)):
++                axes[1].boxplot([col_vals], positions=[j + (i - len(keys) / 2) * 0.2], widths=0.15, patch_artist=True,
++                                boxprops={"facecolor": col, "alpha": 0.5, "hatch": hatch})
++            stale = mj[k]["robot"].get("joint_state_stale_max_s") if isinstance(mj[k].get("robot"), dict) else None
++            if stale is not None:
++                axes[2].bar(i, stale, color=col, hatch=hatch)
++        names = ["%s %s" % (k[0], "ring" if k[1] == "mujoco_ring" else "dls") for k in keys]
++        axes[0].set_xticks(range(len(keys)), names, rotation=30)
++        axes[2].set_xticks(range(len(keys)), names, rotation=30)
++        axes[0].set(ylabel="median over a trial of the largest joint lag (rad)", title="Joint lag per trial on MuJoCo")
++        axes[1].set(xlabel="joint", ylabel="|lag| at the end of the trial (rad)", title="Final lag per joint")
++        axes[1].set_xticks(range(max(len(r) for k in keys for r in [mj[k]["rows"][0].get("lag_final_rad") or []]) or 1))
++        for ax in axes[:2]:
++            ax.axhline(0.005, color="grey", ls=":")   # KangarooRobot tolerance
++        axes[2].set(ylabel="largest joint-state age (s)", title="Joint-state staleness")
++        done.append(save(plt, fig, out_dir, "mujoco_lag"))
++    return done
++
++
++def main(argv=None):
++    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
++    parser.add_argument("--data", default=os.path.join(ROOT, "docs", "kangaroo", "results", "data"))
++    parser.add_argument("--out", default=os.path.join(ROOT, "docs", "kangaroo", "results"))
++    args = parser.parse_args(argv)
++    docs, missing, manifest = load(args.data)
++    fig_dir = os.path.join(args.out, "figures")
++    os.makedirs(fig_dir, exist_ok=True)
++    written = figures(docs, fig_dir)
++    with open(os.path.join(args.out, "tables.md"), "w", encoding="utf-8") as stream:
++        stream.write(tables(docs))
++    with open(os.path.join(fig_dir, "manifest.json"), "w", encoding="utf-8") as stream:
++        json.dump({"commit": commit(), "date": datetime.date.today().isoformat(), "inputs": manifest, "missing": missing, "figures": written}, stream, indent=1)
++    print("figures: %s; %d inputs, %d missing" % (", ".join(written) or "none", len(manifest), len(missing)))
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/scripts/run_ik_gazebo.py b/scripts/run_ik_gazebo.py
+index ca1aa71..4b8ee88 100644
+--- a/scripts/run_ik_gazebo.py
++++ b/scripts/run_ik_gazebo.py
+@@ -6,6 +6,15 @@
+     docker/run.bash gazebo exec ik-gazebo -- 'python3 -B scripts/run_ik_gazebo.py --pairs 30 --method dls --out docs/ik/results/data/gazebo_dls_0of1.json'
+     docker/run.bash gazebo down ik-gazebo
+ 
++The same on the MuJoCo Kangaroo (side from the chain name):
++
++    docker/run.bash kangaroo up NAME
++    docker/run.bash kangaroo exec NAME -- 'python3 -B scripts/run_ik_gazebo.py --chain kangaroo_left4 --pairs 30 --max-minutes 1000 --out docs/kangaroo/results/data/reach/mujoco_ring_left.json'
++    docker/run.bash kangaroo down NAME
++
++A Kangaroo run takes hours (the network runs at ~0.08 of real time), hence --max-minutes 1000; an interrupted run is
++finished with --only.
++
+ The first ``--pairs`` test pairs of ``tiago7``.  Physics is advanced in lock step with the network
+ (50 ms per tick), so the network being slower than real time does not matter.  ``--method``: ``ring``
+ (the spiking IK) or a standard method that reads the exact joint angles.
+@@ -17,6 +26,7 @@ import sys
+ 
+ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+ 
++from ring_so3.chains import KANGAROO_MODELS  # noqa: E402
+ from ring_so3.experiments import write_json  # noqa: E402
+ from ring_so3.ik import experiments  # noqa: E402
+ from ring_so3.ik.design import IkDesign  # noqa: E402
+@@ -27,7 +37,7 @@ from ring_so3.standard.targets import EXACT_METHODS  # noqa: E402
+ def main(argv=None):
+     defaults = IkDesign()
+     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+-    parser.add_argument("--chain", default="tiago7", choices=["tiago%d" % n for n in range(2, 8)])
++    parser.add_argument("--chain", default="tiago7", choices=["tiago%d" % n for n in range(2, 8)] + list(KANGAROO_MODELS))
+     parser.add_argument("--method", default="ring", choices=("ring",) + EXACT_METHODS)
+     parser.add_argument("--kappa", type=float, default=defaults.kappa)
+     parser.add_argument("--pairs", type=int, default=30)
+@@ -39,17 +49,31 @@ def main(argv=None):
+     args = parser.parse_args(argv)
+ 
+     import nest
+-    from ring_so3.gazebo.link import RosLink
+-    from ring_so3.robots import GazeboRobot
+-
+-    link = RosLink()
+-    document = experiments.reach_run(
+-        nest, args.chain, args.pairs, IkDesign(kappa=args.kappa), DEVELOPMENT_SEED if args.development else TEST_SEED, (0, 1),
+-        args.max_minutes, only=[int(v) for v in args.only.split(",")] if args.only else None,
+-        make_robot=lambda chain: GazeboRobot(chain, link), method=args.method, checkpoint=args.out, threads=args.threads)
++
++    kangaroo = args.chain in KANGAROO_MODELS
++    if kangaroo:
++        from ring_so3.kangaroo.link import Ros2Link
++        from ring_so3.robots import KangarooRobot
++
++        link = Ros2Link(args.chain.split("_")[1][:-1])
++        make_robot = lambda chain: KangarooRobot(chain, link)
++    else:
++        from ring_so3.gazebo.link import RosLink
++        from ring_so3.robots import GazeboRobot
++
++        link = RosLink()
++        make_robot = lambda chain: GazeboRobot(chain, link)
++    try:
++        document = experiments.reach_run(
++            nest, args.chain, args.pairs, IkDesign(kappa=args.kappa), DEVELOPMENT_SEED if args.development else TEST_SEED, (0, 1),
++            args.max_minutes, only=[int(v) for v in args.only.split(",")] if args.only else None,
++            make_robot=make_robot, method=args.method, checkpoint=args.out, threads=args.threads)
++    finally:
++        if kangaroo:
++            link.close()
+     write_json(args.out, document)
+     s = document["summary"]
+-    print("%s in Gazebo, %s: %d trials (%d not run)" % (args.chain, args.method, s["trials"], len(document["skipped"])))
++    print("%s in %s, %s: %d trials (%d not run)" % (args.chain, "MuJoCo" if kangaroo else "Gazebo", args.method, s["trials"], len(document["skipped"])))
+     if s["trials"]:
+         print("reached %.0f%% (exact rule on the light robot %.0f%%); final error of reached %.2f deg; 5 deg after %.1f s; path %.2f x shortest; missed %d (%d at a limit)" % (
+             100 * s["reached"], 100 * s["exact_reached"], s["final_error_reached_median_deg"] or float("nan"),
+diff --git a/tests/test_ik_sim.py b/tests/test_ik_sim.py
+index 84cd0d2..11acb91 100644
+--- a/tests/test_ik_sim.py
++++ b/tests/test_ik_sim.py
+@@ -124,6 +124,26 @@ class IkSimulatorPageTests(unittest.TestCase):
+         simulator.handle({"command": "robot", "robot": "gazebo"})   # ignored
+         self.assertEqual(simulator.tick()["robot"], "light")
+ 
++    def test_kangaroo_is_offered_only_for_its_chains(self):
++        from ring_so3.robots import LightRobot
++        from ring_so3.sim.ik_server import IkSimulator
++
++        class StandIn(LightRobot):                       # a light robot that also answers the lock-step block
++            sim_time_s, lag = 0.0, 0.0
++            link = type("Link", (), {"frames": lambda self: 0})()
++
++        simulator = IkSimulator(make, "kangaroo_left4", realtime=False, robots=("light", "kangaroo"),
++                                make_robot=lambda name, chain: StandIn(chain))
++        offered = simulator.config()["robot_chains"]["kangaroo"]
++        self.assertIn("kangaroo_left4", offered)
++        self.assertFalse([name for name in offered if name.startswith("tiago")])
++        simulator.handle({"command": "robot", "robot": "kangaroo"})
++        self.assertEqual(simulator.tick()["robot"], "kangaroo")
++        simulator.handle({"command": "chain", "chain": "tiago7"})
++        simulator.tick()
++        simulator.handle({"command": "robot", "robot": "kangaroo"})   # ignored
++        self.assertEqual(simulator.tick()["robot"], "light")
++
+     def test_page(self):
+         from ring_so3.sim.ik_page import IK_PAGE_HTML
+ 
+diff --git a/tests/test_kangaroo_chains.py b/tests/test_kangaroo_chains.py
+new file mode 100644
+index 0000000..70fbe23
+--- /dev/null
++++ b/tests/test_kangaroo_chains.py
+@@ -0,0 +1,104 @@
++"""Task 1: the Kangaroo arm chains equal the robot's URDF (skipped where the robot description is not installed)."""
++
++import os
++import unittest
++import xml.etree.ElementTree as ET
++
++import numpy as np
++
++from ring_so3.chains import KANGAROO_BASE_LINK, KANGAROO_TOOL_LINK, get_chain
++
++URDF = ("/opt/ros/humble/share/kangaroo_mujoco/models/mjcf_data_floating_4dof_no-end-effector_no-end-effector_fixed/"
++        "robot_description_formatted.urdf")
++SHOULDER_UPPER = {"left": 1.4229904547193268, "right": 1.4622630704048099}   # SO-2 measured values of arm_<s>_2_joint
++RX_PI = np.diag([1.0, -1.0, -1.0])
++
++
++class KangarooUrdfTests(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        if not os.path.exists(URDF):
++            raise unittest.SkipTest("the Kangaroo robot description is not installed here")
++        with open(URDF) as f:
++            text = f.read()
++        root = ET.fromstring(text[:text.index("</robot>") + len("</robot>")])
++        by_child = {j.find("child").get("link"): j for j in root.findall("joint")}
++        cls.joints = {}
++        for side in ("left", "right"):
++            link, joints = KANGAROO_TOOL_LINK % side, []
++            while link != KANGAROO_BASE_LINK:
++                joints.append(by_child[link])
++                link = joints[-1].find("parent").get("link")
++            cls.joints[side] = list(reversed(joints))
++
++    @staticmethod
++    def _numbers(text):
++        return [float(v) for v in text.split()]
++
++    def _urdf_frames(self, side, q):
++        """Independent of ring_so3.kinematics: 4 x 4 transforms composed as the URDF defines them."""
++
++        def transform(xyz, rpy):
++            roll, pitch, yaw = rpy
++            cr, sr, cp, sp, cy, sy = np.cos(roll), np.sin(roll), np.cos(pitch), np.sin(pitch), np.cos(yaw), np.sin(yaw)
++            t = np.eye(4)
++            t[:3, :3] = [[cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr],
++                         [sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr],
++                         [-sp, cp * sr, cp * cr]]
++            t[:3, 3] = xyz
++            return t
++
++        pose, frames, angles = np.eye(4), [], list(q)
++        for joint in self.joints[side]:
++            origin = joint.find("origin")
++            pose = pose @ transform(self._numbers(origin.get("xyz", "0 0 0")), self._numbers(origin.get("rpy", "0 0 0")))
++            origins = pose[:3, 3].copy()
++            if joint.get("type") == "revolute":
++                axis = np.array(self._numbers(joint.find("axis").get("xyz")))
++                angle = angles.pop(0)
++                k = np.array([[0, -axis[2], axis[1]], [axis[2], 0, -axis[0]], [-axis[1], axis[0], 0]])
++                turn = np.eye(4)
++                turn[:3, :3] = np.eye(3) + np.sin(angle) * k + (1 - np.cos(angle)) * (k @ k)      # Rodrigues
++                pose = pose @ turn
++            frames.append((origins, pose[:3, :3].copy()))
++        return frames           # fixed mount, joints 1-4, fixed tool
++
++    def test_tool_orientation_equals_the_urdf(self):
++        rng = np.random.default_rng(7)
++        for side in ("left", "right"):
++            chain = get_chain("kangaroo_%s4" % side)
++            for _ in range(25):
++                q = chain.random_pose(rng)
++                np.testing.assert_allclose(chain.rotation(q), self._urdf_frames(side, q)[-1][1], atol=1e-4, err_msg=side)
++
++    def test_link_frames_equal_the_urdf_up_to_the_folded_half_turn(self):
++        rng = np.random.default_rng(11)
++        for side in ("left", "right"):
++            chain = get_chain("kangaroo_%s4" % side)
++            for _ in range(25):
++                q = chain.random_pose(rng)
++                urdf = self._urdf_frames(side, q)[1:]           # joints 1-4, tool
++                ours = chain.frames(q)[1:]
++                self.assertEqual(len(urdf), len(ours))
++                for k, ((u_origin, u_rot), (origin, rot)) in enumerate(zip(urdf, ours)):
++                    expected = u_rot @ RX_PI if k in (0, 2) else u_rot
++                    np.testing.assert_allclose(rot, expected, atol=1e-4, err_msg="%s frame %d" % (side, k + 1))
++                    np.testing.assert_allclose(origin, u_origin, atol=1e-4, err_msg="%s origin %d" % (side, k + 1))
++
++    def test_limits_and_speeds_are_the_urdf_values_except_the_measured_shoulder(self):
++        for side in ("left", "right"):
++            chain = get_chain("kangaroo_%s4" % side)
++            revolute = [j for j in self.joints[side] if j.get("type") == "revolute"]
++            self.assertEqual(chain.n, len(revolute))
++            expected = []
++            for joint in revolute:
++                limit = joint.find("limit")
++                expected.append([float(limit.get("lower")), float(limit.get("upper"))])
++            expected[1][1] = SHOULDER_UPPER[side]
++            np.testing.assert_allclose(chain.limits(), expected, atol=1e-12, err_msg=side)
++            np.testing.assert_allclose([j.max_velocity for j in chain.joints],
++                                       [float(j.find("limit").get("velocity")) for j in revolute], atol=1e-12, err_msg=side)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_kangaroo_report.py b/tests/test_kangaroo_report.py
+new file mode 100644
+index 0000000..624794e
+--- /dev/null
++++ b/tests/test_kangaroo_report.py
+@@ -0,0 +1,93 @@
++import hashlib
++import json
++import subprocess
++import tempfile
++import unittest
++from pathlib import Path
++
++ROOT = Path(__file__).resolve().parent.parent
++
++
++def static_row(i, err):
++    # same row keys as docs/results/data/static/tiago4.json (kind "random")
++    return {"q": [0.0] * 4, "arrived": True, "move_ticks": 36, "error_deg": err,
++            "decoder_error_deg": err, "written_error_deg": 0.0, "held_error_deg": err,
++            "link_error_deg": [err / 4, err / 3, err / 2, err], "defect": 0.1,
++            "kind": "random", "index": i}
++
++
++def static_file(errs):
++    return {"chain": "kangaroo", "joints": 4, "design": {}, "options": {}, "neurons": 1,
++            "products": 1, "link_populations": 4, "synapses": 1, "simulated_s": 1.0,
++            "wall_s": 1.0, "speed": 1.0, "calibration_fit": {}, "experiment": "static",
++            "pose_seed": 7, "max_speed": 1.0, "silenced_neurons": 0, "silence": 0.0,
++            "rows": [static_row(i, e) for i, e in enumerate(errs)]}
++
++
++def reach_file():
++    # one real row (full key set) from a real reach file
++    real = json.loads((ROOT / "docs/ik/results/data/reach_tiago7_0of3.json").read_text())
++    row = dict(real["rows"][0], lag_median_rad=[0.001] * 4, lag_final_rad=[0.0, 0.001, 0.0, 0.002])
++    # missed, not at a limit, max |lag_final_rad| 0.01 > 0.005 -> "blocked"
++    miss = dict(row, reached=False, exact_reached=False, at_limit=False, exact_at_limit=False,
++                lag_final_rad=[0.0, 0.0, 0.01, 0.0], index=row["index"] + 1)
++    return {"chain": "kangaroo", "joints": 4, "design": {}, "ik_design": {}, "options": {},
++            "neurons": 1, "ik_wiring": {}, "synapses": 1, "simulated_s": 1.0, "wall_s": 1.0,
++            "speed": 1.0, "ik_calibration_fit": {}, "experiment": "reach", "pair_seed": 3,
++            "pairs": 1, "shard": [0, 1], "motor_scale": 1.0, "push": None,
++            "goal_change_s": None, "goal_ring_settings": {}, "silence": 0.0,
++            "silenced_neurons": 0, "steep_deg": 5.0, "skipped": [], "rows": [row, miss],
++            "summary": {}}
++
++
++class KangarooReport(unittest.TestCase):
++    def test_report_from_minimal_data(self):
++        with tempfile.TemporaryDirectory() as tmp:
++            data, out = Path(tmp, "data"), Path(tmp, "out")
++            written = {
++                "static/kangaroo_left4.json": static_file([1.0, 3.0]),   # median 2.0
++                "static/kangaroo_right4.json": static_file([2.0, 4.0]),  # median 3.0
++                "reach/light_ring_left.json": reach_file(),
++            }
++            digests = {}
++            for rel, obj in written.items():
++                p = data / rel
++                p.parent.mkdir(parents=True, exist_ok=True)
++                p.write_text(json.dumps(obj))
++                digests[rel] = hashlib.sha256(p.read_bytes()).hexdigest()
++            missing = ["tracking/kangaroo_left4_0.25.json", "reach/mujoco_ring_left.json",
++                       "reach/mujoco_dls_left.json", "calibration/comparison.json"]
++
++            r = subprocess.run(["python3", "-B", "scripts/kangaroo_report.py",
++                                "--data", str(data), "--out", str(out)],
++                               cwd=ROOT, capture_output=True, text=True)
++            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
++
++            for name in ("static_error", "error_along_arm"):
++                for ext in ("png", "pdf"):
++                    self.assertTrue((out / "figures" / f"{name}.{ext}").is_file(), name + ext)
++
++            tables = (out / "tables.md").read_text()
++            lines = tables.splitlines()
++            for arm, vals in (("left", ("2.00", "2.80", "3.00")), ("right", ("3.00", "3.80", "4.00"))):
++                self.assertTrue(any(arm in l.lower() and all(v in l for v in vals) for l in lines),
++                                f"no {arm} static line with median/p90/max {vals}")
++            hi = next(i for i, l in enumerate(lines) if "blocked" in l.lower())
++            col = [c.strip().lower() for c in lines[hi].strip("|").split("|")]
++            col = next(i for i, c in enumerate(col) if "blocked" in c)
++            rows = [l for l in lines[hi + 2:] if l.startswith("|")]
++            rows = [r for r in rows[:next((i for i, r in enumerate(rows) if "left" not in r.lower()), len(rows))]]
++            cells = [[c.strip() for c in r.strip("|").split("|")] for r in rows if "left" in r.lower()]
++            self.assertTrue(cells and cells[0][col] == "1", (lines[hi], rows))
++
++            manifest = (out / "figures" / "manifest.json").read_text()
++            json.loads(manifest)
++            for rel, digest in digests.items():
++                self.assertIn(rel, manifest)
++                self.assertIn(digest, manifest)
++            for rel in missing:
++                self.assertIn(rel, manifest)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_kangaroo_robot.py b/tests/test_kangaroo_robot.py
+new file mode 100644
+index 0000000..ca9e88e
+--- /dev/null
++++ b/tests/test_kangaroo_robot.py
+@@ -0,0 +1,90 @@
++"""The Kangaroo robot on a stand-in for the ROS 2 link (no ROS, no simulator)."""
++
++import unittest
++
++import numpy as np
++
++from ring_so3.chains import get_chain
++from ring_so3.ik.design import IkDesign
++from ring_so3.ik.session import IkSession
++from ring_so3.kinematics import lift_pitch_yaw
++from ring_so3.robots import KangarooRobot
++from ring_so3.sim.server import StubIkNetwork
++
++
++class FakeKangarooLink:
++    """Four joints that move toward what they were sent, 0.0005 s per physics step; no ROS."""
++
++    PHYSICS_STEP_S = 0.0005
++
++    def __init__(self, side, q):
++        self.side, self.stale_max_s = side, 0.0
++        self.q = np.array(q, dtype=float)
++        self.goal, self.arrive_s = self.q.copy(), 0.05
++        self.t, self.sent, self.steps = 0.0, 0, 0
++
++    def joint_state(self):
++        return list(self.q), [0.0] * 4, self.t
++
++    def sim_time_s(self):
++        return self.t
++
++    def send(self, positions, time_s):
++        self.goal, self.arrive_s, self.sent = np.array(positions, dtype=float), float(time_s), self.sent + 1
++
++    def step(self, iterations):
++        dt = iterations * self.PHYSICS_STEP_S
++        self.q = self.q + (self.goal - self.q) * min(dt / self.arrive_s, 1.0)
++        self.arrive_s = max(self.arrive_s - dt, 1e-6)
++        self.t += dt
++        self.steps += iterations
++        return self.t
++
++    def put_base_back(self):
++        return False
++
++    def base_pose(self):
++        return None
++
++    def frames(self):
++        return 0
++
++
++class KangarooRobotTests(unittest.TestCase):
++    def setUp(self):
++        self.chain = get_chain("kangaroo_left4")
++        self.link = FakeKangarooLink("left", self.chain.limits().mean(axis=1))
++        self.robot = KangarooRobot(self.chain, self.link)
++
++    def test_one_follow_is_one_tick_of_physics(self):
++        before = self.link.t
++        self.robot.follow(self.robot.q + 0.1, 0.8, 0.05)
++        self.assertEqual(self.link.steps, 100)
++        self.assertAlmostEqual(self.link.t - before, 0.05, places=9)
++        self.assertEqual(self.link.sent, 1)
++
++    def test_targets_clip_to_the_measured_shoulder_limit(self):
++        target = list(self.robot.q)
++        target[1] = 2.0
++        self.robot.follow(target, 0.8, 0.05)
++        self.assertAlmostEqual(self.link.goal[1], 1.4229904547193268, places=12)
++        self.assertLessEqual(self.link.goal[1], self.chain.limits()[1, 1])
++
++    def test_wrong_side_is_refused(self):
++        right_link = FakeKangarooLink("right", get_chain("kangaroo_right4").limits().mean(axis=1))
++        with self.assertRaises(ValueError):
++            KangarooRobot(get_chain("kangaroo_left4"), right_link)
++        with self.assertRaises(ValueError):
++            KangarooRobot(get_chain("tiago7"), self.link)
++
++    def test_the_closed_loop_runs_on_it(self):
++        network = StubIkNetwork(self.chain, IkDesign(), noise_deg=0.1)
++        session = IkSession(network, robot=self.robot)
++        session.warm_up(5)
++        goal = lift_pitch_yaw(self.chain.rotation(self.chain.limits().mean(axis=1) + 0.25))
++        trial = session.reach(goal)
++        self.assertLess(trial.final_error_deg, 5.0)
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_kangaroo_sim.py b/tests/test_kangaroo_sim.py
+new file mode 100644
+index 0000000..d4ffae7
+--- /dev/null
++++ b/tests/test_kangaroo_sim.py
+@@ -0,0 +1,125 @@
++"""The ROS 2 link and KangarooRobot against the live MuJoCo simulation (docker/run.bash kangaroo exec).
++
++The live tests are skipped unless rclpy imports and the step_simulation service is there within 5 s;
++test_no_sim_fails_fast is the opposite and runs only where rclpy imports and there is no simulation.
++"""
++
++import time
++import unittest
++
++import numpy as np
++
++from ring_so3.chains import get_chain
++
++try:
++    import rclpy
++    from rclpy.node import Node
++except ImportError:                                           # not a ROS 2 environment
++    rclpy = None
++
++STEP_SERVICE = "/mujoco_ros2_control_node/step_simulation"
++HOME = {"left": [0.239, 1.321, 1.57, 0.8], "right": [-0.239, 1.321, -1.57, 0.8]}
++
++
++def sim_is_up() -> bool:
++    if rclpy is None:
++        return False
++    if not rclpy.ok():
++        rclpy.init()
++    node = Node("kangaroo_test_probe")
++    try:
++        names = lambda: [n for n, _ in node.get_service_names_and_types()]
++        deadline = time.monotonic() + 5.0
++        while time.monotonic() < deadline:
++            if STEP_SERVICE in names():
++                return True
++            time.sleep(0.2)
++        return False
++    finally:
++        node.destroy_node()
++        rclpy.shutdown()
++
++
++SIM = sim_is_up()
++
++
++def rotation_from_quaternion(x, y, z, w):
++    return np.array([[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
++                     [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
++                     [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]])
++
++
++def angle_between(a, b):
++    return float(np.arccos(np.clip((np.trace(a.T @ b) - 1) / 2, -1.0, 1.0)))
++
++
++@unittest.skipUnless(SIM, "needs rclpy and the Kangaroo simulation (docker/run.bash kangaroo exec)")
++class KangarooSimTests(unittest.TestCase):
++    side = "left"
++
++    def setUp(self):
++        from ring_so3.kangaroo.link import Ros2Link
++        from ring_so3.robots import KangarooRobot
++        self.chain = get_chain("kangaroo_%s4" % self.side)
++        self.link = Ros2Link(self.side)
++        self.addCleanup(self.link.close)
++        self.robot = KangarooRobot(self.chain, self.link)
++
++    def test_follow_advances_the_clock_by_one_tick(self):
++        for _ in range(2):                                        # the first follow after construction, then a later one
++            before, q0 = self.link.sim_time_s(), self.robot.q.copy()
++            target = q0.copy()
++            target[0] += 0.2
++            self.robot.follow(target, 0.8, 0.05)
++            self.assertAlmostEqual(self.link.sim_time_s() - before, 0.05, delta=1e-6)
++            self.assertGreater(self.robot.q[0], q0[0])            # moved toward the target
++            self.assertLess(self.robot.q[0], target[0] + 1e-9)
++            # the measured joint-state stamp: within one broadcaster period (0.02 s) of the new sim time
++            self.assertLess(before + 0.05 - 0.0205, self.robot.sim_time_s)
++            self.assertLessEqual(self.robot.sim_time_s, before + 0.05 + 1e-6)
++
++    def test_tool_frame_matches_the_robot_tf(self):
++        import tf2_ros
++        from rclpy.time import Time
++        buffer = tf2_ros.Buffer()
++        node = Node("kangaroo_test_tf", parameter_overrides=[rclpy.parameter.Parameter(
++            "use_sim_time", rclpy.Parameter.Type.BOOL, True)])
++        self.addCleanup(node.destroy_node)
++        tf2_ros.TransformListener(buffer, node, spin_thread=True)
++        home = np.array(HOME[self.side])
++        poses = [home, home + [0.2, -0.2, 0.2, -0.2], home + [-0.2, -0.2, -0.2, 0.2]]
++        for pose in poses:
++            with self.subTest(pose=list(pose)):
++                self.robot.reset(pose)
++                for _ in range(5):                                # let the robot_state_publisher catch up
++                    self.robot.follow(self.robot.q, 0.2, 0.05)
++                time.sleep(0.5)                                   # wall time: only for message delivery
++                t = buffer.lookup_transform("torso_link", "arm_%s_tool_link" % self.side, Time()).transform.rotation
++                tf_rotation = rotation_from_quaternion(t.x, t.y, t.z, t.w)
++                self.assertLess(angle_between(self.chain.rotation(self.robot.q), tf_rotation), 1e-3)
++
++    def test_close_unpauses(self):
++        self.link.close()
++        from rosgraph_msgs.msg import Clock
++        node = Node("kangaroo_test_clock")
++        self.addCleanup(node.destroy_node)
++        stamps = []
++        node.create_subscription(Clock, "/clock", lambda m: stamps.append(m.clock.sec + m.clock.nanosec * 1e-9), 10)
++        deadline = time.monotonic() + 5.0
++        while time.monotonic() < deadline and not (len(stamps) > 1 and stamps[-1] > stamps[0]):
++            rclpy.spin_once(node, timeout_sec=0.1)
++        self.assertTrue(len(stamps) > 1 and stamps[-1] > stamps[0], "/clock does not advance after close()")
++
++
++@unittest.skipUnless(rclpy is not None and not SIM, "runs only with rclpy and no simulation (kangaroo run)")
++class NoSimTests(unittest.TestCase):
++    def test_no_sim_fails_fast(self):
++        from ring_so3.kangaroo.link import Ros2Link
++        start = time.monotonic()
++        with self.assertRaises(RuntimeError):
++            Ros2Link("left", timeout_s=5)
++        self.assertLess(time.monotonic() - start, 15.0)
++
++
++if __name__ == "__main__":
++    unittest.main()

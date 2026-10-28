@@ -1,13 +1,13 @@
-"""The robot behind the inverse kinematics: the light robot, or the TIAGo arm in Gazebo.
+"""The robot behind the inverse kinematics: the light robot, the TIAGo arm in Gazebo, or a Kangaroo arm in MuJoCo.
 
-Both have the same few calls, so the closed loop (:mod:`ring_so3.ik.session`), the simulator
+All three have the same few calls, so the closed loop (:mod:`ring_so3.ik.session`), the simulator
 and the experiments do not care which one runs:
 
 * ``q``: the joint angles now (measured);
 * ``follow(targets, time_s, dt)``: every joint moves toward its target as if it should arrive
   after ``time_s``, for one tick of ``dt``.  With the target a joint's goal-ring angle and
   ``time_s = 1 / kappa`` this is "the joint follows its goal ring with gain kappa";
-* ``reset(q)``: put the arm at ``q`` (the light robot at once; Gazebo moves there);
+* ``reset(q)``: put the arm at ``q`` (the light robot at once; Gazebo and MuJoCo move there);
 * ``displace(joint, angle)``: push one joint (light robot only).
 """
 
@@ -77,10 +77,12 @@ class GazeboRobot:
     name = "gazebo"
     tolerance = 0.01
     place_speed = 1.0
+    #: the chains this robot has start with this
+    chain_prefix = "tiago"
 
     def __init__(self, chain: Chain, link: Any, physics_step_s: float = 0.001) -> None:
-        if not chain.name.startswith("tiago"):
-            raise ValueError("Gazebo has the TIAGo arm only; %s is not one of its chains" % chain.name)
+        if not chain.name.startswith(self.chain_prefix):
+            raise ValueError("the %s robot has the %s chains only; %s is not one of them" % (self.name, self.chain_prefix, chain.name))
         self.chain = chain
         self.link = link
         self.physics_step_s = float(physics_step_s)
@@ -135,4 +137,24 @@ class GazeboRobot:
         return {"robot": self.name, "physics_step_s": self.physics_step_s, "base": self.link.base_pose()}
 
 
-__all__ = ["GazeboRobot", "LightRobot", "start_pose"]
+class KangarooRobot(GazeboRobot):
+    """One arm of PAL's Kangaroo in MuJoCo, in lock step as :class:`GazeboRobot` (the same loop).
+
+    ``link``: a :class:`ring_so3.kangaroo.link.Ros2Link` for the chain's side (or a stand-in with the same calls).
+    """
+
+    name = "kangaroo"
+    #: 2 x the largest steady offset under gravity (0.00137 rad), rounded up:
+    #: docs/experiments/2026-10-26_kangaroo_plant_checks.md
+    tolerance = 0.005
+
+    def __init__(self, chain: Chain, link: Any) -> None:
+        self.chain_prefix = "kangaroo_" + link.side
+        super().__init__(chain, link, physics_step_s=link.PHYSICS_STEP_S)
+
+    def describe(self) -> dict:
+        return {**super().describe(), "joint_state_stale_max_s": self.link.stale_max_s,
+                "joint_state_missed": self.link.missed_states, "tolerance": self.tolerance}
+
+
+__all__ = ["GazeboRobot", "KangarooRobot", "LightRobot", "start_pose"]
